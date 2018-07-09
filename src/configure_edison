@@ -189,7 +189,7 @@ def _changeHostName(newName):
 
 def _changeAPSSID(newName):
   saveDefaultSSID()
-  subprocess.call(["sed", "-i", "s/^ssid=.*/ssid=" + re.escape(newName) + "/", "/etc/hostapd/hostapd.conf"])
+  subprocess.call(["sed", "-i", "s/^ssid=.*/ssid=" + re.escape(newName) + "/", "/etc/hostapd.conf"])
   subprocess.call("systemctl restart mdns && sleep 2", shell=True)
 
 def _changeP2PSSID(newName):
@@ -218,7 +218,7 @@ def _changeRootPassword(newPass):
   chpasswdSub.communicate()[0]
 
 def _changeAPPassword(newPass):
-  subprocess.call(["sed", "-i", "s/^wpa_passphrase=.*/wpa_passphrase=" + re.escape(newPass) + "/", "/etc/hostapd/hostapd.conf"])
+  subprocess.call(["sed", "-i", "s/^wpa_passphrase=.*/wpa_passphrase=" + re.escape(newPass) + "/", "/etc/hostapd.conf"])
 
 def getNetworkIdentity():
   return raw_input("Please enter the network username: ")
@@ -968,7 +968,7 @@ def full():
     print "Done.\n"
 
 def getSSID():
-    return subprocess.check_output("grep -o '^ssid=.*' /etc/hostapd/hostapd.conf | awk -F'=' '{print $2}'", shell=True).strip()
+    return subprocess.check_output("grep -o '^ssid=.*' /etc/hostapd.conf | awk -F'=' '{print $2}'", shell=True).strip()
 
 def saveDefaultSSID():
     if not os.path.isfile(STATE_DIR + "/default-ssid.txt"):
