@@ -566,7 +566,7 @@ def showWiFiIP():
 def showWiFiMode():
     modestr = ''
     try:
-        modestr = subprocess.check_output('iwconfig wlan0 | grep Mode:', shell=True)
+        modestr = subprocess.check_output('iw wlan0 info | grep type', shell=True)
     except subprocess.CalledProcessError:
         print >> sys.stderr, "No interface found."
         return "none"
@@ -575,11 +575,13 @@ def showWiFiMode():
         print >> sys.stderr, inst
         return "none"
 
-    startIdx = modestr.find('Mode:')
+    startIdx = modestr.find('type')
     if (startIdx == -1):
          return "none"
-    modestr = modestr[modestr.find('Mode:')+5:].split()[0]
-    return modestr
+    startIdx = modestr.find('AP')
+    if (startIdx == -1):
+         return "Managed"
+    return "Master"
 
 def getCurrentFirmwareInfo():
     f = open('/etc/version','r')
