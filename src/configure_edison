@@ -588,254 +588,6 @@ def getCurrentFirmwareInfo():
     f.close()
     return ("edison-" + ver_str.split('-')[0], ver_str.split('-')[1].splitlines()[0])
 
-def removeFolderContents(folder_path):
-    try:
-        # remove the entire contents of the folder including files, hidden files, sub-folders, hidden sub-folders and their contents
-        # excluding . and .. folders which are system files to denote current directory and parent directory
-        ret_value = subprocess.call("rm -rf " + folder_path + "/* " + folder_path + "/.[!.]* " + folder_path + "/..?*", shell=True)
-        if ret_value != 0:
-            #this is not expected to happen ever !!
-            print("Could not remove previous installation files")
-            print("Please reboot the device to return to normal.")
-            return -1
-    except Exception as inst:
-        print("Error: Exception while removing previous installation files.")
-        print(type(inst), file=sys.stderr)
-        print(inst, file=sys.stderr)
-        return -1
-
-    return 0
-
-def removePackage():
-    global CURR_PACKAGE_PATH
-    try:
-        os.remove(CURR_PACKAGE_PATH)
-    except Exception as e:
-        pass
-    CURR_PACKAGE_PATH = ""
-
-def signal_term_handler(signal, handler):
-    removePackage()
-    removeFolderContents("/update")
-    sys.exit(0)
-
-def signal_term_handler_package_only(signal, handler):
-    removePackage()
-    sys.exit(0)
-
-def err_downloadPackage():
-    print("Failed to download the new firmware. Unable to proceed.")
-    removePackage()
-
-def err_createDestPackage():
-    print("Could not create destination folder. Unable to proceed.")
-    removePackage()
-    removeFolderContents("/update")
-
-def err_unloadKernelModules():
-    print("Could not unload kernel modules. Unable to proceed.")
-    print("Please reboot the device to return to normal.")
-    removePackage()
-    removeFolderContents("/update")
-
-def err_setupLoopDevice():
-    print("Could not setup loop device. Unable to proceed")
-    print("Please reboot the device to return to normal.")
-    removePackage()
-    removeFolderContents("/update")
-
-def err_mountDevice():
-    print("Could not perform mount operation. Unable to proceed")
-    print("Please reboot the device to return to normal.")
-    removePackage()
-    removeFolderContents("/update")
-
-def err_extractPackage():
-    print("Could not extract the package. Unable to proceed")
-    print("Please reboot the device to return to normal.")
-    removePackage()
-    removeFolderContents("/update")
-
-def err_umountDevice():
-    print("Could not perform umount operation. Unable to proceed")
-    print("Please reboot the device to return to normal.")
-    removePackage()
-    removeFolderContents("/update")
-
-def genSha1ForFile(file_path):
-    chunkSize = 524288 # 512 KB chunk
-    sha = hashlib.sha1()
-    with open(file_path, 'rb') as f:
-        buf = f.read(chunkSize)
-        while len(buf) > 0:
-            sha.update(buf)
-            buf = f.read(chunkSize)
-    return sha.hexdigest()
-
-def downloadPackage(packageUrl, sha1FromServer, packagePath):
-    ret_value = subprocess.call("curl --connect-timeout 10 "+ "'"+packageUrl+"'" + " >"+packagePath, shell=True)
-    if ret_value != 0:
-        err_downloadPackage()
-        return -1
-
-    shaOfDownloadedPkg = genSha1ForFile(packagePath)
-
-    if sha1FromServer != shaOfDownloadedPkg:
-        print("Could not establish integrity of downloaded firmware (hash mismatch). Unable to proceed")
-        removePackage()
-        return -1
-
-    return 0
-
-def doOTAFlash(packageUrl, sha1FromServer, packagePath, rebootInApMode):
-    if len(sha1FromServer) != 40:
-        print("Could not establish integrity of latest firmware (bad hash). Unable to proceed.")
-        return -1
-
-    try:
-        signal.signal(signal.SIGTERM, signal_term_handler_package_only)
-
-        try:
-            ret_value = downloadPackage(packageUrl, sha1FromServer, packagePath)
-            if ret_value != 0:
-                return -1
-        except Exception as inst:
-            err_downloadPackage()
-            print(type(inst), file=sys.stderr)
-            print(inst, file=sys.stderr)
-            return -1
-
-        flashFile(packagePath, rebootInApMode)
-    except KeyboardInterrupt:
-        print("")
-        print("Interrupted by user. Cleaning up.")
-        removePackage()
-        print("Please reboot the device to return to normal.")
-    except Exception as inst:
-        print("Exception occurred while upgrading. Cleaning up.")
-        print(type(inst), file=sys.stderr)
-        print(inst, file=sys.stderr)
-        removePackage()
-        print("Please reboot the device to return to normal.")
-
-def flashFile(packagePath, rebootInApMode):
-    if not os.path.isfile(packagePath):
-        print("Error: cannot upgrade. Package file " + packagePath + " does not exist.")
-        return -1
-
-    try:
-            signal.signal(signal.SIGTERM, signal_term_handler)
-
-            try:
-                ret_value = subprocess.call("mkdir -p /update", shell=True)
-                if ret_value != 0:
-                    err_createDestPackage()
-                    return -1
-            except Exception as inst:
-                err_createDestPackage()
-                print(type(inst), file=sys.stderr)
-                print(inst, file=sys.stderr)
-                return -1
-
-            #notify user that partition will be disconnected from computer if plugged
-            try:
-                ret_value_clloader = subprocess.call("systemctl stop clloader", shell=True)
-                ret_value_pm = subprocess.call("echo on > /sys/devices/pci0000:00/0000:00:11.0/dwc3-device.1/power/control", shell=True)
-                ret_value = subprocess.call("rmmod g_multi", shell=True)
-                if ret_value_clloader != 0 or ret_value_pm != 0 or ret_value != 0:
-                    err_unloadKernelModules()
-                    return -1
-            except Exception as inst:
-                err_unloadKernelModules()
-                print(type(inst), file=sys.stderr)
-                print(inst, file=sys.stderr)
-                return -1
-
-            try:
-                ret_value = subprocess.call("losetup -o 8192 /dev/loop0 /dev/disk/by-partlabel/update", shell=True)
-                if ret_value != 0:
-                    err_setupLoopDevice()
-                    return -1
-            except Exception as inst:
-                err_setupLoopDevice()
-                print(type(inst), file=sys.stderr)
-                print(inst, file=sys.stderr)
-                return -1
-
-            try:
-                ret_value = subprocess.call("mount /dev/loop0 /update", shell=True)
-                if ret_value != 0:
-                    err_mountDevice()
-                    return -1
-            except Exception as inst:
-                err_mountDevice()
-                print(type(inst), file=sys.stderr)
-                print(inst, file=sys.stderr)
-                return -1
-
-            if os.listdir("/update") != []:
-                print("Removing previous installation files")
-                ret_value = removeFolderContents("/update")
-                if ret_value != 0:
-                    print("Please reboot the device to return to normal.")
-                    removePackage()
-                    return -1
-
-            try:
-                ret_value = subprocess.call("unzip -o " + packagePath + " -d /update", shell=True)
-                if ret_value != 0:
-                    err_extractPackage()
-                    return -1
-            except Exception as inst:
-                err_extractPackage()
-                print(type(inst), file=sys.stderr)
-                print(inst, file=sys.stderr)
-                return -1
-
-            if rebootInApMode:
-                if (not os.path.isfile("/update" + HOST_AP_MODE_FILE)):
-                    host_ap_mode_file = open("/update" + HOST_AP_MODE_FILE, "w")
-                    host_ap_mode_file.write("Indicates that Edison will start in host AP mode next boot\n")
-                    host_ap_mode_file.close()
-                    print("Will start in host AP mode next boot.")
-
-            try:
-                ret_value = subprocess.call("umount /update", shell=True)
-                if ret_value != 0:
-                    err_umountDevice()
-                    return -1
-            except Exception as inst:
-                err_umountDevice()
-                print(type(inst), file=sys.stderr)
-                print(inst, file=sys.stderr)
-                return -1
-
-            print("Ready to upgrade. Rebooting device...")
-            time.sleep(2)
-
-            ret_value = subprocess.call("reboot ota", shell=True)
-            if ret_value != 0:
-                #this is not expected to happen ever !!
-                print("Could not perform reboot ota operation")
-                print("Please reboot the device to return to normal.")
-                removePackage()
-                removeFolderContents("/update")
-                return -1
-            #notify user that update will take few minutes and that he shouldn't remove power supply
-    except KeyboardInterrupt:
-        print("")
-        print("Interrupted by user. Cleaning up.")
-        removePackage()
-        removeFolderContents("/update")
-        print("Please reboot the device to return to normal.")
-    except Exception as inst:
-        print("Exception occurred while upgrading. Cleaning up.")
-        print(type(inst), file=sys.stderr)
-        print(inst, file=sys.stderr)
-        removePackage()
-        removeFolderContents("/update")
-        print("Please reboot the device to return to normal.")
-
 def isRestartWithAPSet():
     try:
         ret_value = subprocess.call("mkdir -p /update", shell=True)
@@ -896,27 +648,6 @@ def isRestartWithAPSet():
         return False
 
     return ap_mode
-
-def upgrade(packagePath, rebootInApMode):
-    curr = None
-    build_type = None
-
-    try:
-        build_type, curr = getCurrentFirmwareInfo()
-    except Exception as inst:
-        print("Could not determine firmware version information.", file=sys.stderr)
-        raise
-
-    try:
-        latest, sha1, url = getLatestFirmwareInfo()
-    except Exception as inst:
-        print("Could not retrieve latest firmware version information.", file=sys.stderr)
-        raise
-
-    if int(latest) > int(curr):
-        doOTAFlash(url, sha1, packagePath, rebootInApMode)
-    else:
-        print("The latest version is already installed.")
 
 def full():
   reset("Device Password")
@@ -1027,12 +758,6 @@ def main():
                                         Append --persist to retain this setting after reboot', action='store_true', default=False)
     group_non_interactive.add_argument('--toggleOneTimeSetup', dest='toggleonetimesetup', help='Switch between one-time setup with WiFi access point and WiFi client mode, and visa-versa. \
                                        Append --persist to retain this setting after reboot', action='store_true', default=False)
-    group_non_interactive.add_argument('--upgrade', dest='upgrade', help='Downloads the latest firmware. Append --restartWithAP to reboot in WiFi access point mode after flashing', \
-                                       action='store_true', default=False)
-    group_non_interactive.add_argument('--flash', metavar=('<version>','<release name>'), nargs='+', dest='otaflash', help='Downloads and flashes an image \
-                                       Append --restartWithAP to reboot in WiFi access point mode after flashing')
-    group_non_interactive.add_argument('--flashFile', metavar=('<image-file>'), nargs=1, dest='flashfile', help='Flashes the given image (.zip). \
-                                       Append --restartWithAP to reboot WiFi access point mode after flashing')
     group_non_interactive.add_argument('--changePassword', metavar='password', dest='changepassword', const='', help=argparse.SUPPRESS, nargs='?')
     group_non_interactive.add_argument('--changeName', metavar='name', dest='changename', help=argparse.SUPPRESS, nargs=1)
     group_non_interactive.add_argument('--changeWiFi', metavar='securityType SSID [Identity | password]', dest='changewifi', help=argparse.SUPPRESS, nargs='+')
@@ -1060,58 +785,11 @@ def main():
     if args.setup:
         full()
 
-    if args.upgrade:
-        try:
-            CURR_PACKAGE_PATH = DESTINATION_PATH + "package.zip"
-            upgrade(CURR_PACKAGE_PATH, args.restartwithap)
-
-        except Exception as inst:
-            print("Could not upgrade device firmware. Quitting.")
-            print(type(inst), file=sys.stderr)
-            print(inst, file=sys.stderr)
-            return -1
-
     if args.shownames:
         showNames()
 
     if args.isrestartwithapset:
         print(isRestartWithAPSet())
-
-    if args.otaflash != None:
-        version = None
-        sha1 = None
-        url = None
-
-        try:
-            if len(args.otaflash) == 1:
-                try:
-                    build_type, build_number = getCurrentFirmwareInfo()
-                    version, sha1, url = getSpecificFirmwareInfo(build_type, args.otaflash[0])
-                except Exception as inst:
-                    print("Could not determine firmware verison information.", file=sys.stderr)
-                    raise
-            elif len(args.otaflash) == 2:
-                version, sha1, url = getSpecificFirmwareInfo(args.otaflash[1], args.otaflash[0])
-            else:
-                print("error: usage: configure_edison --flash <version> [ <release name> ]")
-        except Exception as inst:
-            print("Could not retrieve required firmware information. Quitting.")
-            return -1
-
-        CURR_PACKAGE_PATH = DESTINATION_PATH + "package.zip"
-
-        try:
-            doOTAFlash(url, sha1, CURR_PACKAGE_PATH, args.restartwithap)
-
-        except Exception as inst:
-            print(type(inst), file=sys.stderr)
-            print(inst, file=sys.stderr)
-            print("Could not flash device. Quitting.")
-            return -1
-
-    if args.flashfile != None:
-        CURR_PACKAGE_PATH = args.flashfile[0]
-        flashFile(CURR_PACKAGE_PATH, args.restartwithap)
 
     if args.changepassword != None:
         changePassword(args.changepassword)
@@ -1147,10 +825,8 @@ def main():
     #print 'wifi = ',args.wifi
 
     #print 'showwifiip = ',args.showwifiip
-    #print 'upgrade = ',args.upgrade
     #print 'disableonetimesetup = ',args.disableonetimesetup
     #print 'enableonetimesetup = ',args.enableonetimesetup
-    #print 'otaflash = ',args.otaflash
     #print 'changepassword = ',args.changepassword
 
     #print 'changename = ',args.changename
