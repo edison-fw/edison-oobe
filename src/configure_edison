@@ -588,46 +588,6 @@ def getCurrentFirmwareInfo():
     f.close()
     return ("edison-" + ver_str.split('-')[0], ver_str.split('-')[1].splitlines()[0])
 
-def parseFirmwareInfo(firmwareinfo, build_type):
-    fwInfoObj = json.loads(firmwareinfo)
-
-    count = 0;
-    # get version number
-    strarray = fwInfoObj["url"].split("/")
-    while (count < len(strarray)):
-        if strarray[count] == build_type:
-            break
-        else:
-            count += 1
-    count += 1
-
-    return (strarray[count], fwInfoObj["hash"], fwInfoObj["url"])
-
-def getLatestFirmwareInfo():
-    build_type = None
-    build_number = None
-
-    try:
-        build_type, build_number = getCurrentFirmwareInfo()
-    except Exception as inst:
-        print("Could not determine firmware version information.", file=sys.stderr)
-        raise
-
-    build_url = "http://software.wearables.intel.com/getLatestFirmwareUpdateURL?product=" + build_type
-    request = urllib2.Request(build_url)
-    request.add_header("Accept", "application/json")
-    filehandle = urllib2.urlopen(request)
-    response = filehandle.read()
-    return parseFirmwareInfo(response, build_type)
-
-def getSpecificFirmwareInfo(build_type, build_number):
-    build_url = "http://software.wearables.intel.com/getFirmwareUpdateURL?product=" + build_type + "&version=" + build_number
-    request = urllib2.Request(build_url)
-    request.add_header("Accept", "application/json")
-    filehandle = urllib2.urlopen(request)
-    response = filehandle.read()
-    return parseFirmwareInfo(response, build_type)
-
 def removeFolderContents(folder_path):
     try:
         # remove the entire contents of the folder including files, hidden files, sub-folders, hidden sub-folders and their contents
@@ -1061,8 +1021,6 @@ def main():
     group_non_interactive.add_argument('--isRestartWithAPSet', dest='isrestartwithapset', help=argparse.SUPPRESS, action='store_true', default=False)
     group_non_interactive.add_argument('--showWiFiIP', dest='showwifiip', help='IP address associated with the wireless interface', action='store_true', default=False)
     group_non_interactive.add_argument('--showWiFiMode', dest='showwifimode', help='Show current mode for the wireless interface', action='store_true', default=False)
-    group_non_interactive.add_argument('--version', dest='version', help='Gets the current firmware version', action='store_true', default=False)
-    group_non_interactive.add_argument('--latest-version', dest='latestversion', help='Gets the latest firmware version', action='store_true', default=False)
     group_non_interactive.add_argument('--disableOneTimeSetup', dest='disableonetimesetup', help='Disable one-time setup with WiFi access point and enable WiFi client mode \
                                        Append --persist to retain this setting after reboot', action='store_true', default=False)
     group_non_interactive.add_argument('--enableOneTimeSetup', dest='enableonetimesetup', help='Enable one-time setup with WiFi access point and disable WiFi client mode. \
@@ -1101,22 +1059,6 @@ def main():
 
     if args.setup:
         full()
-
-    if args.version:
-        try:
-            build_type, version = getCurrentFirmwareInfo()
-            print(version)
-        except Exception as inst:
-            print("Could not determine firmware version information. Quitting.", file=sys.stderr)
-            print("none")
-
-    if args.latestversion:
-        try:
-            latestversion, sha1, url = getLatestFirmwareInfo()
-            print(latestversion)
-        except Exception as inst:
-            print("Could not retrieve latest firmware version information. Quitting.", file=sys.stderr)
-            print("none")
 
     if args.upgrade:
         try:
@@ -1205,8 +1147,6 @@ def main():
     #print 'wifi = ',args.wifi
 
     #print 'showwifiip = ',args.showwifiip
-    #print 'version = ',args.version
-    #print 'latestversion = ',args.latestversion
     #print 'upgrade = ',args.upgrade
     #print 'disableonetimesetup = ',args.disableonetimesetup
     #print 'enableonetimesetup = ',args.enableonetimesetup
