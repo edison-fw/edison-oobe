@@ -494,6 +494,7 @@ def showWiFiIP():
         print(inst, file=sys.stderr)
         return "none"
 
+    ipstr = str(ipstr, 'utf-8')
     startIdx = ipstr.find('inet addr:')
     if (startIdx == -1):
          return "none"
