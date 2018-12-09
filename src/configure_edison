@@ -25,6 +25,7 @@ import argparse
 import json
 import re
 from array import *
+import configparser
 
 WSREGEX = re.compile(r"\s+")
 DESTINATION_PATH = "/tmp/"
@@ -40,69 +41,6 @@ class text_colors:
   GREEN = '\033[92m'
   RED = '\033[91m'
   END = '\033[0m'
-
-class wpa_templates:
-  START = '''
-ctrl_interface=/var/run/wpa_supplicant
-ctrl_interface_group=0
-update_config=1
-ap_scan=1
-'''
-  OPEN =  '''
-network={
-  ssid="%s"
-  %s
-  key_mgmt=NONE
-}'''
-  WEP =  '''
-network={
-  ssid="%s"
-  %s
-  key_mgmt=NONE
-  group=WEP104 WEP40
-  wep_key0="%s"
-}
-'''
-  WPAPSK =  '''
-network={
-  ssid="%s"
-  %s
-  key_mgmt=WPA-PSK
-  pairwise=CCMP TKIP
-  group=CCMP TKIP WEP104 WEP40
-  eap=TTLS PEAP TLS
-  psk="%s"
-}
-'''
-  WPAEAP =  '''
-network={
-  ssid="%s"
-  %s
-  key_mgmt=WPA-EAP
-  pairwise=CCMP TKIP
-  group=CCMP TKIP WEP104 WEP40
-  eap=TTLS PEAP TLS
-  identity="%s"
-  password="%s"
-  phase1="peaplabel=0"
-}
-'''
-  #worst case, break this out.
-  MAX = '''
-network={
-  ssid="%s"
-  %s
-  key_mgmt=WPA-EAP WPA-PSK IEEE8021X NONE
-  pairwise=CCMP TKIP
-  group=CCMP TKIP WEP104 WEP40
-  psk="%s"
-  eap=TTLS PEAP TLS
-  identity="%s"
-  password="%s"
-  phase1="peaplabel=0"
-}
-'''
-
 
 # Helpers
 #######################################
@@ -565,7 +503,7 @@ def showWiFiIP():
 def showWiFiMode():
     modestr = ''
     try:
-        modestr = subprocess.check_output('iw wlan0 info | grep type', shell=True)
+        modestr = subprocess.check_output('connmanctl technologies', shell=True)
     except subprocess.CalledProcessError:
         print("No interface found.", file=sys.stderr)
         return "none"
@@ -574,13 +512,15 @@ def showWiFiMode():
         print(inst, file=sys.stderr)
         return "none"
 
-    startIdx = modestr.find('type')
-    if (startIdx == -1):
-         return "none"
-    startIdx = modestr.find('AP')
-    if (startIdx == -1):
-         return "Managed"
-    return "Master"
+    modestr = str(modestr, 'utf-8')
+    modestr = "[Wifi]" + modestr.split('/net/connman/technology/wifi')[1].split('/net/connman/technology')[0].replace(' ','')
+    Section = configparser.ConfigParser()
+    Section.read_string(modestr)
+    if Section['Wifi']['Connected'] == 'True':
+        return "Managed"
+    if Section['Wifi']['Tethering'] == 'True':
+        return "Master"
+    return "none"
 
 def getCurrentFirmwareInfo():
     f = open('/etc/version','r')
