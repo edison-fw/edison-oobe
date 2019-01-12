@@ -37,13 +37,13 @@
                 <td class="middle">
                     <label for="name">Device Name:</label></td>
                 <td class="right">
-                    <input type="text" id="name" name="hostname" value="{{hostname}}" class="textbox"></td>
+                    <input title="{{hostname_tooltip}}" style="{{hostname_checked}}" type="text" id="name" name="hostname" value="{{hostname}}" class="textbox"></td>
             </tr>
         </table>
     </div>
     <BR>
     <div class="submit_section">
-        <input class="submit_button" type="submit" value="Submit">
+        <input class="submit_button" type="submit" value="Save">
     </div>
 </form>
 </body>

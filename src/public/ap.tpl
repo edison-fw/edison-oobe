@@ -71,7 +71,7 @@
     </div>
     <BR>
     <div class="submit_section">
-        <input class="submit_button" type="submit" value="Submit">
+        <input class="submit_button" type="submit" value="Save">
     </div>
 </form>
 </body>

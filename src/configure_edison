@@ -115,13 +115,24 @@ def verified(selection):
       elif verify == "N" or verify == "n":
         return 0
 
+def _checkName(newName):
+    length = len(newName)
+    if length < 1 or length > 63:
+        return -1
+    if newName[0] == '-' or newName[length - 1] == '-':
+        return -2
+    for i in range(length):
+        if not newName[i].isalnum() and newName[i] != '-':
+            return -3
+    return 0
+
 def changeName(newName):
-  if WSREGEX.search(newName):
-      print("New name contains whitespaces. Ignoring")
-      return
-  _changeHostName(newName)
-  _changeP2PSSID(newName)
-  _changeAPSSID(newName)
+    if _checkName(newName) < 0:
+        print("Invalid new name. Ignoring")
+        return
+    _changeHostName(newName)
+    _changeP2PSSID(newName)
+    _changeAPSSID(newName)
 
 def _changeHostName(newName):
   hostname_file = open('/etc/hostname','w')
@@ -363,8 +374,8 @@ def _getCachedService(service):
             return i[1]
 
 def _getServices(type):
-    data = subprocess.check_output("connmanctl services | grep " + type, shell=True)
-    data = str(data, 'utf-8').split("\n")
+    data = subprocess.getoutput("connmanctl services | grep " + type)
+    data = data.split("\n")
 
     network_map = {}
     ssid_keys = []
@@ -792,83 +803,136 @@ def do_main_form():
     print(control)
     redirect('/')
 
+class classHostName:
+    Old = ""
+    New = ""
+    Valid = 0
+    Changed = 0
+    Checked = ""
+    Tooltip = ""
+
+class classWired:
+    Old = ""
+    New = ""
+    Type = ""
+    Mode = ""
+    IP = ""
+    Valid = 0
+    Changed = 0
+    Checked = ""
+    Tooltip = ""
+
+class classSettings:
+    HostName = classHostName()
+    Wired = classWired()
+
 @route('/name')
 def name_form():
-    hostname = getHostName()
-    return template('name', hostname = hostname)
+    global Settings
+    if Settings.HostName.Changed == 0:
+        Settings.HostName.Old = hostname = getHostName()
+        tooltip = "Names consist of 'a-z', '0-9', '-'"
+        checked = ""
+    else:
+        hostname = Settings.HostName.New
+        tooltip = Settings.HostName.Tooltip
+        if Settings.HostName.Valid == 1:
+            checked = "font-weight: bold; "
+        else:
+            checked = "border:3px; border-style:solid; border-color:red; padding: 1em; "
+
+    return template('name', hostname_checked = checked, hostname_tooltip = tooltip, hostname = hostname)
 
 @route('/name', method='POST')
-def do_main_form():
-    currentname= getHostName()
+def do_name_form():
+    global Settings
+    currentname = getHostName()
     hostname = request.forms.get('hostname')
+    Settings.HostName.Changed = 0
     if hostname != currentname:
-        _changeHostName(hostname)
-
-    WiFiMode = _getWiFiMode()
-    AP_mode = request.forms.get('AP_mode')
-    WiFi_mode = request.forms.get('WiFi_mode')
-    WiFi_Network = request.forms.get('newwifis')
-    WiFi_Passphrase = request.forms.get('WiFipassphrase')
-    if AP_mode == "on":
-        new_WiFiMode = "AP"
-    elif WiFi_mode == "on":
-        new_WiFiMode = "Connected"
-    else:
-        new_WiFiMode = "Off"
-    if WiFiMode != new_WiFiMode:
-        if new_WiFiMode == "Connected":
-            _setWiFiMode("Powered")
-        else:
-            _setWiFiMode(new_WiFiMode)
-    WiFiMode = _getWiFiMode()
-    if WiFiMode == "Powered" or WiFiMode == "Connected":
-        _store(WiFi_Network, WiFi_Passphrase)
-        _selectNetwork(WiFi_Network)
-    redirect('/')
+ #       _changeHostName(hostname)
+        Settings.HostName.New = hostname
+        Settings.HostName.Changed = 1
+        Settings.HostName.Valid = 0
+        check = _checkName(hostname)
+        if check == 0:
+            Settings.HostName.Valid = 1
+            Settings.HostName.Tooltip = "Valid host name"
+        elif check == -1:
+            Settings.HostName.Tooltip = "Incorrect length"
+        elif check == -2:
+            Settings.HostName.Tooltip = "Can not start or end with '-'"
+        elif check == -3:
+            Settings.HostName.Tooltip = "Can not contain other then 'a-z', '0-9', '-'"
+    redirect('/name')
 
 @route('/wired')
-def wireless_form():
+def wired_form():
+    global Settings
     Host_IP = request['REMOTE_ADDR']
-    Net = _getGadgetMode()
-    if Net == "None":
-        Net = _getWiredMode()
+    if Settings.Wired.Changed == 0:
+        Net = _getGadgetMode()
         if Net == "None":
-            Wired_Type = "No ethernet available"
-            Wired_IP = ""
-            Wired_Mode = "OFF"
-        if Net == "Powered":
-            Wired_IP = "Not connected"
-            Wired_Type = "Ethernet dongle"
-            Wired_Mode = "Checked"
-        if Net == "Connected":
-            Wired_IP = _getIFaceIP("eth0")
-            Wired_Type = "Ethernet dongle"
-            Wired_Mode = "Checked"
+            Net = _getWiredMode()
+            if Net == "None":
+                Settings.Wired.Type = "No ethernet available"
+                Settings.Wired.IP = ""
+                Settings.Wired.Mode = "OFF"
+            if Net == "Powered":
+                Settings.Wired.IP = "Not connected"
+                Settings.Wired.Type = "Ethernet dongle"
+                Settings.Wired.Mode = "Checked"
+            if Net == "Connected":
+                Settings.Wired.IP = _getIFaceIP("eth0")
+                Settings.Wired.Type = "Ethernet dongle"
+                Settings.Wired.Mode = "Checked"
+            else:
+                Settings.Wired.Type = "An error has occured"
+                Settings.Wired.IP = ""
+                Settings.Wired.Mode = "OFF"
+        elif Net == "Powered":
+            Settings.Wired.IP = "Not connected"
+            Settings.Wired.Type = "Ethernet over USB (OTG)"
+            Settings.Wired.Mode = "Checked"
+        elif Net == "Connected":
+            Settings.Wired.IP = _getIFaceIP("usb0")
+            Settings.Wired.Type = "Ethernet over USB (OTG)"
+            Settings.Wired.Mode = "Checked"
+        elif Net == "Off":
+            Settings.Wired.Type = "Ethernet over USB (OTG)"
+            Settings.Wired.IP = "Not powered"
+            Settings.Wired.Mode = "OFF"
         else:
-            Wired_Type = "An error has occured"
-            Wired_IP = ""
-            Wired_Mode = "OFF"
-    elif Net == "Powered":
-        Wired_IP = "Not connected"
-        Wired_Type = "Ethernet over USB (OTG)"
-        Wired_Mode = "Checked"
-    elif Net == "Connected":
-        Wired_IP = _getIFaceIP("usb0")
-        Wired_Type = "Ethernet over USB (OTG)"
-        Wired_Mode = "Checked"
-    else:
-        Wired_Type = "An error has occured"
-        Wired_IP = ""
-        Wired_Mode = "OFF"
+            Settings.Wired.Type = "An error has occured"
+            Settings.Wired.IP = ""
+            Settings.Wired.Mode = "OFF"
     connections = _getServices("Wired")
-    if Net == "Connected":
+    if connections:
         ConnState = connections[0][0]
+    else:
+        ConnState = ""
+    Wired_State = ""
+
+    if Net == "Connected":
         if "O" in ConnState:
             Wired_State = "Primary connection verified On Line"
         elif "R" in ConnState:
             Wired_State = "Fall back connection standby"
-    return template('wired', Wired_Type = Wired_Type, Wired_IP = Wired_IP, Wired_Mode = Wired_Mode, Wired_State = Wired_State, Host_IP = Host_IP)
+    if Net == "Powered":
+        if "*" in ConnState:
+            Wired_State = "Connection available"
+        else:
+            Wired_State = "Not plugged"
+    return template('wired', Wired_Type = Settings.Wired.Type, Wired_IP = Settings.Wired.IP, \
+        Wired_Mode = Settings.Wired.Mode, Wired_State = Wired_State, Host_IP = Host_IP)
 
+@route('/wired', method='POST')
+def do_wired_form():
+    global Settings
+    Settings.Wired.NewMode = request.forms.get('Wired_Mode')
+    if Settings.Wired.NewMode != Settings.Wired.Mode:
+        Settings.Wired.Changed = 1
+        
 
 @route('/wireless')
 @route('/wirelessr')
@@ -891,7 +955,7 @@ def wireless_form():
         _setWiFiMode("Powered")
 
     connections = _scanForNetworks()
-    if connections[0][0] == "":
+    if connections[0][1] == "Scanning, please wait 10 seconds":
         WiFi_State = "Scanning"
         ReloadMode = True
     else:
@@ -903,7 +967,7 @@ def wireless_form():
                 WiFi_State = "Fall back connection standby"
         if WiFiMode != _getWiFiMode():
             _setWiFiMode(WiFiMode)
-    if ReloadMode:
+    if ReloadMode == True:
         return template('wirelessr',  
                     WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
     else:
@@ -911,7 +975,7 @@ def wireless_form():
                     WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
 
 @route('/wireless', method='POST')
-def do_main_form():
+def do_wireless_form():
     WiFiMode = _getWiFiMode()
     WiFi_mode = request.forms.get('WiFi_mode')
     WiFi_Network = request.forms.get('newwifis')
@@ -956,35 +1020,6 @@ def ap_form():
         _setWiFiMode("Powered")
     return template('ap', hostname = hostname, WiFi_mode = WiFi_mode, AP_mode = AP_mode, AP_name = AP_name, AP_passphrase = "        ", AP_IP = AP_IP)
 
-@route('/name', method='POST')
-def do_main_form():
-    currentname= getHostName()
-    hostname = request.forms.get('hostname')
-    if hostname != currentname:
-        _changeHostName(hostname)
-
-    WiFiMode = _getWiFiMode()
-    AP_mode = request.forms.get('AP_mode')
-    WiFi_mode = request.forms.get('WiFi_mode')
-    WiFi_Network = request.forms.get('newwifis')
-    WiFi_Passphrase = request.forms.get('WiFipassphrase')
-    if AP_mode == "on":
-        new_WiFiMode = "AP"
-    elif WiFi_mode == "on":
-        new_WiFiMode = "Connected"
-    else:
-        new_WiFiMode = "Off"
-    if WiFiMode != new_WiFiMode:
-        if new_WiFiMode == "Connected":
-            _setWiFiMode("Powered")
-        else:
-            _setWiFiMode(new_WiFiMode)
-    WiFiMode = _getWiFiMode()
-    if WiFiMode == "Powered" or WiFiMode == "Connected":
-        _store(WiFi_Network, WiFi_Passphrase)
-        _selectNetwork(WiFi_Network)
-    redirect('/')
-
 @route('/main.css')
 def server_static(filename):
     return static_file('main.css', root='.')
@@ -1005,10 +1040,14 @@ def send_static(filename):
 def send_static(filename):
     return static_file(filename, root='script')
 
+@route('/<filename:re:favicon.ico>')
+def send_image(filename):
+    return static_file(filename, root='img', mimetype='image/x-icon')
 
 def main():
     global lastScanned
-
+    global Settings 
+    Settings = classSettings()
     global CURR_PACKAGE_PATH
 
     parser = argparse.ArgumentParser(prog='configure_edison')
@@ -1098,8 +1137,8 @@ def main():
         lastScanned = datetime.datetime.now() - timedelta(minutes = 2)
         print(lastScanned)
         os.chdir(os.path.dirname('/usr/lib/edison_config_tools/public/'))
-        debug(True)
-        run(reloader = True, host='0.0.0.0', port=80)
+        debug(False)
+        run(host='0.0.0.0', port=80)
 
     #print 'restartwithap = ',args.restartwithap
     #print 'persist = ',args.persist
