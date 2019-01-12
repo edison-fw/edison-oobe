@@ -26,12 +26,17 @@ import json
 import re
 from array import *
 import configparser
+from bottle import Bottle, route, run, debug, template, request, static_file, error, redirect
+import datetime
+from datetime import timedelta
 
 WSREGEX = re.compile(r"\s+")
 DESTINATION_PATH = "/tmp/"
 STATE_DIR = '/var/lib/edison_config_tools'
 HOST_AP_MODE_FILE = "/.start-in-host-ap-mode"
 CURR_PACKAGE_PATH = ""
+CONNMAN_SETTINGS = "/var/lib/connman/settings"
+CONNMAN_SERVICES = "/var/lib/connman/wifi.config"
 
 class text_colors:
   CYAN = '\033[96m'
@@ -124,10 +129,130 @@ def _changeHostName(newName):
   hostname_file.close();
   subprocess.call("hostname -F /etc/hostname", shell=True)
 
+def _getDefaultSSID():
+    data = os.popen("cat /sys/class/net/wlan0/address | tr '[:lower:]' '[:upper:]'").read()
+    APSSID = "EDISON-" + data[12:14] +"-" + data[15:17]
+    return APSSID
+
+def _getAPSSID():
+    ConnmanSettings = configparser.ConfigParser()
+    ConnmanSettings.optionxform=str
+    ConnmanSettings.read(CONNMAN_SETTINGS)
+    APSSID = ConnmanSettings.get('WiFi', 'Tethering.Identifier', fallback='')
+
+    if APSSID == "":
+        passphrase = os.popen("cat /factory/serial_number").read()
+        ConnmanSettings['WiFi']['Tethering.Identifier'] = _getDefaultSSID()
+        ConnmanSettings['WiFi']['Tethering.Passphrase'] = passphrase
+        with open(CONNMAN_SETTINGS, 'w') as configfile:
+            ConnmanSettings.write(configfile)
+    return(APSSID)
+
 def _changeAPSSID(newName):
-  saveDefaultSSID()
-  subprocess.call(["sed", "-i", "s/^ssid=.*/ssid=" + re.escape(newName) + "/", "/etc/hostapd.conf"])
-  subprocess.call("systemctl restart mdns && sleep 2", shell=True)
+    ConnmanSettings = configparser.ConfigParser()
+    ConnmanSettings.optionxform=str
+    ConnmanSettings.read(CONNMAN_SETTINGS)
+    ConnmanSettings['WiFi']['Tethering.Identifier'] = newName
+    with open(CONNMAN_SETTINGS, 'w') as configfile:
+        ConnmanSettings.write(configfile)
+
+def _changeAPPassword(newPass):
+    ConnmanSettings = configparser.ConfigParser()
+    ConnmanSettings.optionxform=str
+    ConnmanSettings.read(CONNMAN_SETTINGS)
+    ConnmanSettings['WiFi']['Tethering.Passphrase'] = newPass
+    with open(CONNMAN_SETTINGS, 'w') as configfile:
+        ConnmanSettings.write(configfile)
+
+def _getWiFiMode():
+    modestr = ''
+    try:
+        modestr = subprocess.check_output('connmanctl technologies', shell=True)
+    except subprocess.CalledProcessError:
+        return "Err"
+    except Exception as inst:
+        return "Err"
+
+    modestr = str(modestr, 'utf-8')
+    modestr = "[Wifi]" + modestr.split('/net/connman/technology/wifi')[1].split('/net/connman/technology')[0].replace(' ','')
+    Section = configparser.ConfigParser()
+    Section.optionxform=str
+    Section.read_string(modestr)
+    if Section['Wifi']['Connected'] == 'True':
+        return "Connected"
+    if Section['Wifi']['Tethering'] == 'True':
+        return "AP"
+    if Section['Wifi']['Powered'] == 'True':
+        return "Powered"
+    return "Off"
+
+def _getWiredMode():
+    modestr = ''
+    try:
+        modestr = subprocess.check_output('connmanctl technologies', shell=True)
+    except subprocess.CalledProcessError:
+        return "Err"
+    except Exception as inst:
+        return "Err"
+
+    modestr = str(modestr, 'utf-8')
+    if modestr.find("ethernet") == -1:
+        return "None"
+    modestr = "[Wired]" + modestr.split('/net/connman/technology/ethernet')[1].split('/net/connman/technology')[0].replace(' ','')
+    Section = configparser.ConfigParser()
+    Section.optionxform=str
+    Section.read_string(modestr)
+    if Section['Wired']['Connected'] == 'True':
+        return "Connected"
+    if Section['Wired']['Powered'] == 'True':
+        return "Powered"
+    return "Off"
+
+def _getGadgetMode():
+    modestr = ''
+    modestr = subprocess.run('lsusb', shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    modestr = str(modestr.stderr, 'utf-8')
+    gadget = modestr.find("unable to initialize libusb")
+    if gadget == -1:
+        return "None"
+    modestr = ''
+    try:
+        modestr = subprocess.check_output('connmanctl technologies', shell=True)
+    except subprocess.CalledProcessError:
+        return "Err"
+    except Exception as inst:
+        return "Err"
+
+    modestr = str(modestr, 'utf-8')
+    if modestr.find("gadget") == -1:
+        return "Err"
+    modestr = "[Wired]" + modestr.split('/net/connman/technology/gadget')[1].split('/net/connman/technology')[0].replace(' ','')
+    Section = configparser.ConfigParser()
+    Section.optionxform=str
+    Section.read_string(modestr)
+    if Section['Wired']['Connected'] == 'True':
+        return "Connected"
+    if Section['Wired']['Powered'] == 'True':
+        return "Powered"
+    return "Off"
+
+def _setWiFiMode(Mode):
+    CurrentMode = _getWiFiMode()
+    if CurrentMode == 'Err':
+        return
+    if Mode == 'Off':
+        if CurrentMode != 'Off':
+            subprocess.check_output("connmanctl disable wifi", shell=True)
+    elif Mode == 'Powered':
+        if CurrentMode == 'Off':
+            subprocess.check_output("connmanctl enable wifi", shell=True)
+        if CurrentMode == 'AP':
+            subprocess.check_output("connmanctl tether wifi off", shell=True)
+    elif Mode == 'AP':
+        if CurrentMode == 'Off':
+            subprocess.check_output("connmanctl enable wifi && connmanctl tether wifi on", shell=True)
+    time.sleep(1)
+    return
 
 def _changeP2PSSID(newName):
   subprocess.call(["sed", "-i", "s/^p2p_ssid_postfix=.*/p2p_ssid_postfix=" + re.escape(newName) + "/", "/etc/wpa_supplicant/p2p_supplicant.conf"])
@@ -153,9 +278,6 @@ def _changeRootPassword(newPass):
   chpasswdSub = subprocess.Popen(["chpasswd"], stdin=echoSub.stdout, stdout=subprocess.PIPE)
   echoSub.stdout.close()  # Allow echoSub to receive a SIGPIPE if chpasswdSub exits.
   chpasswdSub.communicate()[0]
-
-def _changeAPPassword(newPass):
-  subprocess.call(["sed", "-i", "s/^wpa_passphrase=.*/wpa_passphrase=" + re.escape(newPass) + "/", "/etc/hostapd.conf"])
 
 def getNetworkIdentity():
   return input("Please enter the network username: ")
@@ -233,57 +355,67 @@ def decideToConnect():
     else:
       print("I need Y or N as a reply.")
 
-WPAPSK_REGEX=re.compile(r'\[WPA[2]?-PSK-.+\]')
-WPAEAP_REGEX=re.compile(r'\[WPA[2]?-EAP-.+\]')
-WEP_REGEX=re.compile(r'\[WEP.*\]')
+def _getCachedService(service):
+    global _cachedServices
+    
+    for i in _cachedServices:
+        if i[2] == service:
+            return i[1]
+
+def _getServices(type):
+    data = subprocess.check_output("connmanctl services | grep " + type, shell=True)
+    data = str(data, 'utf-8').split("\n")
+
+    network_map = {}
+    ssid_keys = []
+    connection = []
+    for i in range(len(data)):
+        (left, seperator, session) = data[i].rpartition(' ')
+        ssid = left[4:].rstrip()
+        flags = left[:4].rstrip()
+        if ssid != "":
+            connection.append((flags, ssid, session))
+    return connection
+
+def _scanForNetworks():
+    global lastScanned
+    global _cachedServices
+    connection = []
+    now = datetime.datetime.now()
+    if((now - lastScanned) >  timedelta(minutes = 2)):
+        lastScanned = now
+        data = subprocess.check_output("connmanctl scan wifi", shell=True)
+        connection.append(("", "Scanning, please wait 10 seconds", ""))
+    else:
+        connection = _getServices("wifi")
+        _cachedServices = connection
+    return connection
+
+def _store(WiFi_Network, WiFi_Name, WiFi_Passphrase):
+    ConnmanServices = configparser.ConfigParser()
+    ConnmanServices.optionxform=str
+    ConnmanServices.read(CONNMAN_SERVICES)
+    service = WiFi_Network
+    service.replace(" ", "")
+    print(service)
+    if ConnmanServices.get("service_" + service, "Name", fallback="") == "":
+        ConnmanServices["service_" + service] = {}
+    if WiFi_Passphrase != "!@#$%^&*":
+        ConnmanServices["service_" + service]["Type"] = "wifi"
+        ConnmanServices["service_" + service]["Name"] = WiFi_Name
+        ConnmanServices["service_" + service]["Passphrase"] = WiFi_Passphrase
+        with open(CONNMAN_SERVICES, 'w') as configfile:
+            ConnmanServices.write(configfile)
 
 def scanForNetworks():
-  stdout.write("Starting scan\r")
-  stdout.flush()
-  os.popen("systemctl stop hostapd && sleep 2 && systemctl start wpa_supplicant")
-  r = range(10,0,-1)
-  for i in r:
-    stdout.write("Scanning: %s seconds left \r" % i)
+    stdout.write("Starting scan\r")
     stdout.flush()
-    if i == 6:
-      os.popen("wpa_cli scan")
-    time.sleep(1)
 
-  data = os.popen("wpa_cli scan_results").read().split("\n")
+    return _scanForNetworks()
 
-  print("\n")
-  network_map = {}
-  ssid_keys = []
-
-  while (len(data)):
-    line = data.pop().split("\t")
-    if (len(line) == 5):
-      ssid = line.pop()
-      if ssid not in ssid_keys and not ssid == "" and "\\x00" not in ssid:
-        tokens = line.pop()
-        if WPAPSK_REGEX.search(tokens):
-          network_map[ssid] = "WPA-PSK"
-        elif WPAEAP_REGEX.search(tokens):
-          network_map[ssid] = "WPA-EAP"
-        elif WEP_REGEX.search(tokens):
-          network_map[ssid] = "WEP"
-        else:
-          network_map[ssid] = "OPEN"
-
-        ssid_keys.append(ssid)
-
-  network_file = open(STATE_DIR + "/networks.txt", "w")
-  network_file.write("{\n")
-  for i in range(0, len(ssid_keys)):
-    network_file.write('\t"' + ssid_keys[i] + '": "' + network_map[ssid_keys[i]])
-    if i == len(ssid_keys)-1:
-        network_file.write('"\n')
-    else:
-        network_file.write('",\n')
-  network_file.write("}\n")
-  network_file.close()
-
-  return (ssid_keys, network_map)
+def _selectNetwork(service):
+    data = subprocess.check_output("connmanctl connect " + service, shell=True)
+    print(data)
 
 def selectNetwork(ssid_keys):
   i = 2
@@ -461,7 +593,7 @@ def connectNetwork():
 
   while 1:
     reset("WiFi Connection")
-    (ssid_keys, network_map) = scanForNetworks()
+    connections = scanForNetworks()
     choice = selectNetwork(ssid_keys)
 
     #choice is validated within selectNetwork.
@@ -482,16 +614,13 @@ def connectNetwork():
   checkNetwork()
   disableOneTimeSetup(True)
 
-def showWiFiIP():
+def _getIFaceIP(iface):
     ipstr = ''
     try:
-        ipstr = subprocess.check_output('ifconfig wlan0 | grep \'inet addr:\'', shell=True)
+        ipstr = subprocess.check_output("ifconfig " + iface + " | grep \'inet addr:\'", shell=True)
     except subprocess.CalledProcessError:
-        print("No IP address found. Device not connected?", file=sys.stderr)
         return "none"
     except Exception as inst:
-        print(type(inst), file=sys.stderr)
-        print(inst, file=sys.stderr)
         return "none"
 
     ipstr = str(ipstr, 'utf-8')
@@ -501,27 +630,17 @@ def showWiFiIP():
     ipstr = ipstr[ipstr.find('inet addr:')+10:].split()[0]
     return ipstr
 
-def showWiFiMode():
-    modestr = ''
-    try:
-        modestr = subprocess.check_output('connmanctl technologies', shell=True)
-    except subprocess.CalledProcessError:
-        print("No interface found.", file=sys.stderr)
-        return "none"
-    except Exception as inst:
-        print(type(inst), file=sys.stderr)
-        print(inst, file=sys.stderr)
-        return "none"
+def showWiFiIP():
+    ipstr = _getIFaceIP('wlan0')
+    if ipstr == 'none':
+        print("No IP address found. Device not connected?")
+    return ipstr
 
-    modestr = str(modestr, 'utf-8')
-    modestr = "[Wifi]" + modestr.split('/net/connman/technology/wifi')[1].split('/net/connman/technology')[0].replace(' ','')
-    Section = configparser.ConfigParser()
-    Section.read_string(modestr)
-    if Section['Wifi']['Connected'] == 'True':
-        return "Managed"
-    if Section['Wifi']['Tethering'] == 'True':
-        return "Master"
-    return "none"
+def showWiFiMode():
+    Mode = _getWiFiMode()
+    if Mode == 'Err':
+        print("Connman error")
+    return Mode
 
 def getCurrentFirmwareInfo():
     f = open('/etc/version','r')
@@ -601,21 +720,7 @@ def full():
     print("Done.\n")
 
 def getSSID():
-    return subprocess.check_output("grep -o '^ssid=.*' /etc/hostapd.conf | awk -F'=' '{print $2}'", shell=True).strip()
-
-def saveDefaultSSID():
-    if not os.path.isfile(STATE_DIR + "/default-ssid.txt"):
-        curr_ssid = getSSID()
-        default_ssid_file = open(STATE_DIR + "/default-ssid.txt", "w")
-        default_ssid_file.write(curr_ssid + "\n")
-        default_ssid_file.close()
-
-def getDefaultSSID():
-    saveDefaultSSID()
-    default_ssid_file = open(STATE_DIR + "/default-ssid.txt", "r")
-    curr_ssid = default_ssid_file.readline()
-    default_ssid_file.close()
-    return curr_ssid.strip()
+    return _getAPSSID()
 
 def enableOneTimeSetup(persist):
     subprocess.call("systemctl restart blink-led", shell=True)
@@ -666,13 +771,243 @@ def toggleOneTimeSetup(persist):
     else:
         enableOneTimeSetup(persist)
 
+def getHostName():
+    return(str(subprocess.check_output('hostname', shell=True).strip(), 'utf-8'))
+
 def showNames():
-    hostname = subprocess.check_output('hostname', shell=True).strip()
+    hostname = getHostName()
     ssid = getSSID()
-    default_ssid = getDefaultSSID()
-    print('{"hostname": "' + str(hostname, 'utf-8') + '", "ssid": "' + str(ssid, 'utf-8') + '", "default_ssid": "' + default_ssid + '"}')
+    default_ssid = _getDefaultSSID()
+    print('{"hostname": "' + hostname + '", "ssid": "' + ssid + '", "default_ssid": "' + default_ssid + '"}')
+
+@route('/')
+@route('/activate')
+def main_form():
+    print(request['REMOTE_ADDR'])
+    return template('index' )
+
+@route('/', method='POST')
+def do_main_form():
+    control = request.forms.get('button')
+    print(control)
+    redirect('/')
+
+@route('/name')
+def name_form():
+    hostname = getHostName()
+    return template('name', hostname = hostname)
+
+@route('/name', method='POST')
+def do_main_form():
+    currentname= getHostName()
+    hostname = request.forms.get('hostname')
+    if hostname != currentname:
+        _changeHostName(hostname)
+
+    WiFiMode = _getWiFiMode()
+    AP_mode = request.forms.get('AP_mode')
+    WiFi_mode = request.forms.get('WiFi_mode')
+    WiFi_Network = request.forms.get('newwifis')
+    WiFi_Passphrase = request.forms.get('WiFipassphrase')
+    if AP_mode == "on":
+        new_WiFiMode = "AP"
+    elif WiFi_mode == "on":
+        new_WiFiMode = "Connected"
+    else:
+        new_WiFiMode = "Off"
+    if WiFiMode != new_WiFiMode:
+        if new_WiFiMode == "Connected":
+            _setWiFiMode("Powered")
+        else:
+            _setWiFiMode(new_WiFiMode)
+    WiFiMode = _getWiFiMode()
+    if WiFiMode == "Powered" or WiFiMode == "Connected":
+        _store(WiFi_Network, WiFi_Passphrase)
+        _selectNetwork(WiFi_Network)
+    redirect('/')
+
+@route('/wired')
+def wireless_form():
+    Host_IP = request['REMOTE_ADDR']
+    Net = _getGadgetMode()
+    if Net == "None":
+        Net = _getWiredMode()
+        if Net == "None":
+            Wired_Type = "No ethernet available"
+            Wired_IP = ""
+            Wired_Mode = "OFF"
+        if Net == "Powered":
+            Wired_IP = "Not connected"
+            Wired_Type = "Ethernet dongle"
+            Wired_Mode = "Checked"
+        if Net == "Connected":
+            Wired_IP = _getIFaceIP("eth0")
+            Wired_Type = "Ethernet dongle"
+            Wired_Mode = "Checked"
+        else:
+            Wired_Type = "An error has occured"
+            Wired_IP = ""
+            Wired_Mode = "OFF"
+    elif Net == "Powered":
+        Wired_IP = "Not connected"
+        Wired_Type = "Ethernet over USB (OTG)"
+        Wired_Mode = "Checked"
+    elif Net == "Connected":
+        Wired_IP = _getIFaceIP("usb0")
+        Wired_Type = "Ethernet over USB (OTG)"
+        Wired_Mode = "Checked"
+    else:
+        Wired_Type = "An error has occured"
+        Wired_IP = ""
+        Wired_Mode = "OFF"
+    connections = _getServices("Wired")
+    if Net == "Connected":
+        ConnState = connections[0][0]
+        if "O" in ConnState:
+            Wired_State = "Primary connection verified On Line"
+        elif "R" in ConnState:
+            Wired_State = "Fall back connection standby"
+    return template('wired', Wired_Type = Wired_Type, Wired_IP = Wired_IP, Wired_Mode = Wired_Mode, Wired_State = Wired_State, Host_IP = Host_IP)
+
+
+@route('/wireless')
+@route('/wirelessr')
+def wireless_form():
+    Host_IP = request['REMOTE_ADDR']
+    WiFi_mode = ""
+    WiFi_IP = "WiFi is currently not powered"
+    WiFiMode = _getWiFiMode()
+    WiFi_State = ""
+    ReloadMode = False
+
+    if WiFiMode == "AP":
+        _setWiFiMode("Powered")
+    elif WiFiMode == "Connected":
+        WiFi_mode = "Checked"
+        WiFi_IP = _getIFaceIP("wlan0")
+    elif WiFiMode == "Powered":
+        WiFi_IP = "WiFi is powered but inactive"
+    else:
+        _setWiFiMode("Powered")
+
+    connections = _scanForNetworks()
+    if connections[0][0] == "":
+        WiFi_State = "Scanning"
+        ReloadMode = True
+    else:
+        if WiFiMode == "Connected":
+            ConnState = connections[0][0]
+            if "O" in ConnState:
+                WiFi_State = "Primary connection verified On Line"
+            elif "R" in ConnState:
+                WiFi_State = "Fall back connection standby"
+        if WiFiMode != _getWiFiMode():
+            _setWiFiMode(WiFiMode)
+    if ReloadMode:
+        return template('wirelessr',  
+                    WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
+    else:
+        return template('wireless',  
+                    WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
+
+@route('/wireless', method='POST')
+def do_main_form():
+    WiFiMode = _getWiFiMode()
+    WiFi_mode = request.forms.get('WiFi_mode')
+    WiFi_Network = request.forms.get('newwifis')
+    WiFi_Passphrase = request.forms.get('WiFipassphrase')
+    if WiFi_mode == "on":
+        new_WiFiMode = "Connected"
+    else:
+        new_WiFiMode = "Off"
+    if WiFiMode != new_WiFiMode:
+        if new_WiFiMode == "Connected":
+            _setWiFiMode("Powered")
+        else:
+            _setWiFiMode(new_WiFiMode)
+    WiFiMode = _getWiFiMode()
+    if WiFiMode == "Powered" or WiFiMode == "Connected":
+        WiFi_Name = _getCachedService(WiFi_Network)
+        _store(WiFi_Network, WiFi_Name, WiFi_Passphrase)
+        _selectNetwork(WiFi_Network)
+    redirect('/wireless')
+
+
+@route('/ap')
+def ap_form():
+    AP_mode = ""
+    AP_IP = "Access Point is currently OFF"
+    WiFi_mode = ""
+    WiFi_IP = "WiFi is currently not powered"
+    AP_name = _getAPSSID()
+    WiFiMode = _getWiFiMode()
+    WiFi_State = ""
+    hostname = getHostName()
+
+    if WiFiMode == "AP":
+        AP_mode = "checked"
+        AP_IP = "Acces Point " + AP_name + " is currently on IP address: " + _getIFaceIP("tether")
+        _setWiFiMode("Powered")
+    elif WiFiMode == "Connected":
+        WiFi_mode = "Checked"
+    elif WiFiMode == "Powered":
+        WiFi_IP = "WiFi is powered but inactive"
+    else:
+        _setWiFiMode("Powered")
+    return template('ap', hostname = hostname, WiFi_mode = WiFi_mode, AP_mode = AP_mode, AP_name = AP_name, AP_passphrase = "        ", AP_IP = AP_IP)
+
+@route('/name', method='POST')
+def do_main_form():
+    currentname= getHostName()
+    hostname = request.forms.get('hostname')
+    if hostname != currentname:
+        _changeHostName(hostname)
+
+    WiFiMode = _getWiFiMode()
+    AP_mode = request.forms.get('AP_mode')
+    WiFi_mode = request.forms.get('WiFi_mode')
+    WiFi_Network = request.forms.get('newwifis')
+    WiFi_Passphrase = request.forms.get('WiFipassphrase')
+    if AP_mode == "on":
+        new_WiFiMode = "AP"
+    elif WiFi_mode == "on":
+        new_WiFiMode = "Connected"
+    else:
+        new_WiFiMode = "Off"
+    if WiFiMode != new_WiFiMode:
+        if new_WiFiMode == "Connected":
+            _setWiFiMode("Powered")
+        else:
+            _setWiFiMode(new_WiFiMode)
+    WiFiMode = _getWiFiMode()
+    if WiFiMode == "Powered" or WiFiMode == "Connected":
+        _store(WiFi_Network, WiFi_Passphrase)
+        _selectNetwork(WiFi_Network)
+    redirect('/')
+
+@route('/main.css')
+def server_static(filename):
+    return static_file('main.css', root='.')
+
+@route('/img/<filename:re:.*\.png>')
+def send_image(filename):
+    return static_file(filename, root='img', mimetype='image/png')
+
+@route('/img/<filename:re:.*\.svg>')
+def send_image(filename):
+    return static_file(filename, root='img', mimetype='image/svg+xml')
+
+@route('/css/<filename:re:.*\.css>')
+def send_static(filename):
+    return static_file(filename, root='css')
+
+@route('/script/<filename:re:.*\.js>')
+def send_static(filename):
+    return static_file(filename, root='script')
+
 
 def main():
+    global lastScanned
 
     global CURR_PACKAGE_PATH
 
@@ -703,6 +1038,7 @@ def main():
     group_non_interactive.add_argument('--changeName', metavar='name', dest='changename', help=argparse.SUPPRESS, nargs=1)
     group_non_interactive.add_argument('--changeWiFi', metavar='securityType SSID [Identity | password]', dest='changewifi', help=argparse.SUPPRESS, nargs='+')
     group_non_interactive.add_argument('--showNames', dest='shownames', help='Show device name and SSID', action='store_true', default=False)
+    group_non_interactive.add_argument('--webInterface', dest='webInterface', help='Start a web server', action='store_true', default=False)
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -757,6 +1093,13 @@ def main():
         network_conf = configureNetworkAP(args.changewifi)
         if network_conf != None:
             setNetwork(network_conf, args.changewifi[1])
+
+    if args.webInterface:
+        lastScanned = datetime.datetime.now() - timedelta(minutes = 2)
+        print(lastScanned)
+        os.chdir(os.path.dirname('/usr/lib/edison_config_tools/public/'))
+        debug(True)
+        run(reloader = True, host='0.0.0.0', port=80)
 
     #print 'restartwithap = ',args.restartwithap
     #print 'persist = ',args.persist
