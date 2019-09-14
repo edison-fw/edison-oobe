@@ -219,6 +219,28 @@ def _getWiredMode():
         return "Powered"
     return "Off"
 
+def _getBTMode():
+    modestr = ''
+    try:
+        modestr = subprocess.check_output('connmanctl technologies', shell=True)
+    except subprocess.CalledProcessError:
+        return "Err"
+    except Exception as inst:
+        return "Err"
+
+    modestr = str(modestr, 'utf-8')
+    if modestr.find("bluetooth") == -1:
+        return "None"
+    modestr = "[Bluetooth]" + modestr.split('/net/connman/technology/bluetooth')[1].split('/net/connman/technology')[0].replace(' ','')
+    Section = configparser.ConfigParser()
+    Section.optionxform=str
+    Section.read_string(modestr)
+    if Section['Bluetooth']['Connected'] == 'True':
+        return "Connected"
+    if Section['Bluetooth']['Powered'] == 'True':
+        return "Powered"
+    return "Off"
+
 def _getGadgetMode():
     modestr = ''
     modestr = subprocess.run('lsusb', shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -933,6 +955,48 @@ def do_wired_form():
     if Settings.Wired.NewMode != Settings.Wired.Mode:
         Settings.Wired.Changed = 1
         
+@route('/bt')
+def bt_form():
+    global Settings
+    Host_IP = request['REMOTE_ADDR']
+    if Settings.Wired.Changed == 0:
+        Net = _getBTMode()
+        if Net == "None":
+            Settings.BT.Type = "No bluetooth available"
+            Settings.BT.IP = ""
+            Settings.BT.Mode = "OFF"
+        if Net == "Powered":
+            Settings.BT.IP = "Not connected"
+            Settings.BT.Type = ""
+            Settings.BT.Mode = "Checked"
+        if Net == "Connected":
+            Settings.BT.IP = _getIFaceIP("bnep0")
+            Settings.BT.Type = "Ethernet dongle"
+            Settings.BT.Mode = "Checked"
+    else:
+        Settings.Wired.Type = "An error has occured"
+        Settings.Wired.IP = ""
+        Settings.Wired.Mode = "OFF"
+            
+    connections = _getServices("bluetooth")
+    if connections:
+        ConnState = connections[0][0]
+    else:
+        ConnState = ""
+    Wired_State = ""
+
+    if Net == "Connected":
+        if "O" in ConnState:
+            Wired_State = "Primary connection verified On Line"
+        elif "R" in ConnState:
+            Wired_State = "Fall back connection standby"
+    if Net == "Powered":
+        if "*" in ConnState:
+            Wired_State = "Connection available"
+        else:
+            Wired_State = "Not plugged"
+    return template('wired', Wired_Type = Settings.BT.Type, Wired_IP = Settings.BT.IP, \
+        Wired_Mode = Settings.BT.Mode, Wired_State = Wired_State, Host_IP = Host_IP)
 
 @route('/wireless')
 @route('/wirelessr')

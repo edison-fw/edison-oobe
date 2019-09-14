@@ -21,51 +21,53 @@
                 <li class='active'><a href='wired'><span>Wired Connections</span></a></li>
                 <li class='active'><a href='wireless'><span>Wireless Connections</span></a></li>
                 <li class='active'><a href='bt'><span>Bluetooth Connections</span></a></li>
-                <li class='active'><a href='ap'><span>Access Point</span></a></li>
+                <li><a href='ap'><span>Access Point</span></a></li>
                 <li><a href='activate'><span>Activate</span></a></li>
             </ul>
         </div>
     </div>
     <BR>
-   <div id="AP_section" class="section">
+    <div id="wired_section" class="section">
         <table class="content">
             <tr>
                 <td class="left_header">
-                    <div class="header">Acces Point</div>
+                    <div class="header">Connect to a Wired Network</div>
                 </td>
                 <td class="middle">
                     <BR>
                     <div class="can-toggle demo-rebrand-2">
-                        <input id="ap" type="checkbox" name="AP_mode" {{AP_mode}}>
-                        <label for="ap">
+                        <input id="wired" type="checkbox" name="Wired_mode" {{Wired_Mode}}>
+                        <label for="wired">
                             <div class="can-toggle__switch" data-checked="ON" data-unchecked="OFF"></div>
-                            <div class="can-toggle__label-text">{{AP_IP}}</div>
+                            <div class="can-toggle__label-text">{{Wired_IP}}</div>
                         </label>
                     </div>
                 </td>
                 <td class="right">
+                    <BR>
+                    <label for="wired">{{Wired_State}}</label>
                 </td>
             </tr>
             <tr>
                 <td class="left">
-                    This changes the Access Point (AP) name.
+                    Edison supports a wired connection over USB using an OTG cable (breakout board) or by placing the switch in Gadget mode (Edison Ardiuino board). Alternatively, plug a (USB) ethernet dongle. The type is detected automatically.
                 </td>
                 <td class="middle">
-                    <label for="name">AP Name:</label>
+                    <label for="name">Network Type:</label>
                 </td>
                 <td class="right">
-                    <input type="text" id="name" name="APname" value="{{AP_name}}" class="textbox">
+                    {{Wired_Type}}
                 </td>
-            </tr>
             <tr>
+            </tr>
                 <td class="left">
-                    <i>Changing the AP name will interrupt your connection if you are currently using this to acces the Edison. Leave the AP name as is to skip setting a new AP name.</i>
+                    <i><p>Changing the Wired network will interrupt your connection if you are currently using this to access the Edison.</p>
+                    <p>Consider setting up a WiFi connection as a fallback before doing this.</p>
+                    <p>Note: you are currently connected from {{Host_IP}}</p></i> 
                 </td>
                 <td class="middle">
-                    <label for="name">AP Passphrase:</label>
                 </td>
                 <td class="right">
-                    <input type="password" id="name" name="APpassphrase" value="{{AP_passphrase}}" class="textbox">
                 </td>
             </tr>
         </table>

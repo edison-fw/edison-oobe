@@ -20,6 +20,7 @@
                 <li><a href='name'><span>Name</span></a></li>
                 <li><a href='wired'><span>Wired Connections</span></a></li>
                 <li><a href='wireless'><span>Wireless Connections</span></a></li>
+                <li><a href='bt'><span>Bluetooth Connections</span></a></li>
                 <li><a href='ap'><span>Access Point</span></a></li>
                 <li><a href='activate'><span>Activate</span></a></li>
             </ul>

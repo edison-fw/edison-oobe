@@ -13,11 +13,15 @@
     <div id="menu_section" class="menu_section">
         <div id='cssmenu' class="menu_section">
             <ul>
+                <!--Home icon made by <a href="https://www.freepik.com/" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/"
+                title="Flaticon">www.flaticon.com</a> is licensed by <a href="http://creativecommons.org/licenses/by/3.0/"
+                title="Creative Commons BY 3.0" target="_blank">CC 3.0 BY</a>-->
                 <li class='active'><a href='/'><span><img class="inline-img" src="../img/home.png" height="16" title="Home" /></object></span></a></li>
-                <li><a href='name.html'><span>Name</span></a></li>
-                <li><a href='wired.html'><span>Wired Connections</span></a></li>
-                <li><a href='wireless.html'><span>Wireless Connections</span></a></li>
-                <li><a href='ap.html'><span>Access Point</span></a></li>
+                <li class='active'><a href='name.html'><span>Name</span></a></li>
+                <li class='active'><a href='wired.html'><span>Wired Connections</span></a></li>
+                <li class='active'><a href='wireless.html'><span>Wireless Connections</span></a></li>
+                <li class='active'><a href='bt'><span>Bluetooth Connections</span></a></li>
+                <li class='active'><a href='ap.html'><span>Access Point</span></a></li>
             </ul>
         </div>
     </div>
