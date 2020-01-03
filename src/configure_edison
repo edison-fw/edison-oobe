@@ -38,6 +38,31 @@ CURR_PACKAGE_PATH = ""
 CONNMAN_SETTINGS = "/var/lib/connman/settings"
 CONNMAN_SERVICES = "/var/lib/connman/wifi.config"
 
+# Types
+#######################################
+class classHostName:
+    Old = ""
+    New = ""
+    Valid = 0
+    Changed = 0
+    Checked = ""
+    Tooltip = ""
+
+class classWired:
+    Old = ""
+    New = ""
+    Type = ""
+    Mode = ""
+    IP = ""
+    Valid = 0
+    Changed = 0
+    Checked = ""
+    Tooltip = ""
+
+class classSettings:
+    HostName = classHostName()
+    Wired = classWired()
+
 class text_colors:
   CYAN = '\033[96m'
   MAGENTA = '\033[95m'
@@ -49,7 +74,6 @@ class text_colors:
 
 # Helpers
 #######################################
-
 def getch():
   fd = sys.stdin.fileno()
 
@@ -814,7 +838,6 @@ def showNames():
     print('{"hostname": "' + hostname + '", "ssid": "' + ssid + '", "default_ssid": "' + default_ssid + '"}')
 
 @route('/')
-@route('/activate')
 def main_form():
     print(request['REMOTE_ADDR'])
     return template('index' )
@@ -825,28 +848,9 @@ def do_main_form():
     print(control)
     redirect('/')
 
-class classHostName:
-    Old = ""
-    New = ""
-    Valid = 0
-    Changed = 0
-    Checked = ""
-    Tooltip = ""
-
-class classWired:
-    Old = ""
-    New = ""
-    Type = ""
-    Mode = ""
-    IP = ""
-    Valid = 0
-    Changed = 0
-    Checked = ""
-    Tooltip = ""
-
-class classSettings:
-    HostName = classHostName()
-    Wired = classWired()
+@route('/activate')
+def activate():
+    return template('activate', hostname = "hostname")
 
 @route('/name')
 def name_form():
@@ -1019,6 +1023,7 @@ def wireless_form():
         _setWiFiMode("Powered")
 
     connections = _scanForNetworks()
+    print(connections)
     if connections[0][1] == "Scanning, please wait 10 seconds":
         WiFi_State = "Scanning"
         ReloadMode = True
