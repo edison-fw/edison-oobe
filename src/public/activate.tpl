@@ -28,17 +28,12 @@
     </div>
     <BR>
     <div id="name_section" class="section">
-        <div class="header">Change Device Name</div>
+        <div class="header">Activation</div>
         <table class="content">
             <tr>
                 <td class="left">
-                    This changes the device name.
-                    <p><i>Leave the device name as is to skip setting a new device name.</i></p>
+                    <p><i>You should be ready to use your Edison, so please click on <em>Submit</em>!</i></p>
                 </td>
-                <td class="middle">
-                    <label for="name">Device Name:</label></td>
-                <td class="right">
-                    <input type="text" id="name" name="hostname" value="{{hostname}}" class="textbox"></td>
             </tr>
         </table>
     </div>
