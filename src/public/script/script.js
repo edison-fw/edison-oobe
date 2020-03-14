@@ -1,4 +1,6 @@
 
+'use strict';
+
 window.onload = init; 
 
 //window.onunload = exit;
@@ -19,7 +21,7 @@ function init() {
     
   //alert(">>> init");
   _initDone = true;
-  setBannerTitle(bannerTitle);
+  setBannerTitle(_bannerTitle);
 
   // fix stuff
   //exalon_onresize();
