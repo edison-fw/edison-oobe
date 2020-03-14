@@ -1,6 +1,7 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # Copyright (c) 2014, Intel Corporation.
+# Copyright (c) 2020, Ferry Toth and Matthias Dieter Wallnöfer
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU Lesser General Public License,
@@ -19,10 +20,7 @@ import time
 import termios
 import fcntl
 import subprocess
-import signal
-import hashlib
 import argparse
-import json
 import re
 from array import *
 import configparser
@@ -31,10 +29,8 @@ import datetime
 from datetime import timedelta
 
 WSREGEX = re.compile(r"\s+")
-DESTINATION_PATH = "/tmp/"
 STATE_DIR = '/var/lib/edison_config_tools'
 HOST_AP_MODE_FILE = "/.start-in-host-ap-mode"
-CURR_PACKAGE_PATH = ""
 CONNMAN_SETTINGS = "/var/lib/connman/settings"
 CONNMAN_SERVICES = "/var/lib/connman/wifi.config"
 
@@ -423,8 +419,6 @@ def _getServices(type):
     data = subprocess.getoutput("connmanctl services | grep " + type)
     data = data.split("\n")
 
-    network_map = {}
-    ssid_keys = []
     connection = []
     for i in range(len(data)):
         (left, seperator, session) = data[i].rpartition(' ')
@@ -439,7 +433,7 @@ def _scanForNetworks():
     global _cachedServices
     connection = []
     now = datetime.datetime.now()
-    if((now - lastScanned) >  timedelta(minutes = 2)):
+    if((now - lastScanned) >  timedelta(seconds = 30)):
         lastScanned = now
         data = subprocess.check_output("connmanctl scan wifi", shell=True)
         connection.append(("", "Scanning, please wait 10 seconds", ""))
@@ -465,14 +459,19 @@ def _store(WiFi_Network, WiFi_Name, WiFi_Passphrase):
             ConnmanServices.write(configfile)
 
 def scanForNetworks():
-    stdout.write("Starting scan\r")
-    stdout.flush()
-
-    return _scanForNetworks()
+    while True:
+        connections = _scanForNetworks()
+        if connections[0][1] == "Scanning, please wait 10 seconds":
+            print(connections[0][1])
+            time.sleep(10)
+        else:
+            break
+    return connections
 
 def _selectNetwork(service):
-    data = subprocess.check_output("connmanctl connect " + service, shell=True)
+    (result, data) = subprocess.getstatusoutput("connmanctl connect " + service)
     print(data)
+    return result
 
 def selectNetwork(ssid_keys):
   i = 2
@@ -481,7 +480,7 @@ def selectNetwork(ssid_keys):
   print("2 :\tManually input a hidden SSID")
   for ssid in ssid_keys:
     i = i + 1
-    print(i, ":\t", ssid)
+    print(i, ":\t", ssid[1])
 
   print("")
   choice = -1
@@ -504,7 +503,7 @@ def selectNetwork(ssid_keys):
       sys.exit(0)
     elif choice == 2:
       break
-    elif choice > 2 and choice <= i and verified(ssid_keys[choice-3]):
+    elif choice > 2 and choice <= i and verified(ssid_keys[choice-3][1]):
       break
   return choice
 
@@ -512,7 +511,7 @@ def configureHiddenNetwork(ssid):
   print('''
     0: OPEN
     1: WEP
-    2: WPA-Personal(PSK)
+    2: WPA-Personal (PSK)
     3: WPA-Enterprise (EAP)
   ''')
   while 1:
@@ -545,28 +544,8 @@ def configureHiddenNetwork(ssid):
       print("Invalid input.")
   return network_template_open % ssid
 
-def configureNetwork(choice,ssid_keys,network_map):
-  ssid = ssid_keys[choice-3]
-  if network_map[ssid] == "OPEN":
-    return wpa_templates.OPEN % (ssid, "")
-  elif network_map[ssid] == "WEP":
-    password = ''
-    while len(password) != 5 and len(password) != 13:
-        print("Password must be either 5 or 13 characters.")
-        password = getNetworkPassword()
-    return wpa_templates.WEP % (ssid, "", password)
-  elif network_map[ssid] == "WPA-PSK":
-    password = ''
-    while len(password) < 8 or len(password) > 63:
-        print("Password must be between 8 and 63 characters.")
-        password = getNetworkPassword()
-    return wpa_templates.WPAPSK % (ssid, "", password)
-  elif network_map[ssid] == "WPA-EAP":
-    identity = getNetworkIdentity()
-    password = getNetworkPassword()
-    return wpa_templates.WPAEAP % (ssid, "", identity, password)
-  else:
-    print(noooo("the last line of startNetworkConfig"))
+def configureNetwork(choice,ssid_keys):
+    _selectNetwork(ssid_keys[choice-3][2])
 
 def configureNetworkAP(changewifi):
   protocol = changewifi[0]
@@ -595,36 +574,6 @@ def configureNetworkAP(changewifi):
   else:
     print(noooo("the last line of startNetworkConfig"))
 
-def setNetwork(network_conf, ssid):
-    if not os.path.isfile('/etc/wpa_supplicant/wpa_supplicant.conf.original'):
-        subprocess.call("cp /etc/wpa_supplicant/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf.original", shell=True)
-
-    wpa_supplicant = open('/etc/wpa_supplicant/wpa_supplicant.conf','a') #Will not take care of duplicates at the moment.
-    wpa_supplicant.write(network_conf)
-    wpa_supplicant.close();
-
-    print("Initiating connection to " + ssid + ". Please wait...")
-
-    try:
-        if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) == 0:
-          subprocess.call("systemctl stop hostapd &> /dev/null", shell=True)
-          subprocess.call("systemctl start wpa_supplicant &> /dev/null", shell=True)
-          time.sleep(10)
-        else:
-          subprocess.call("wpa_cli reconfigure &> /dev/null && sleep 2", shell=True)
-
-        network_count = int(subprocess.check_output('wpa_cli list_networks | wc -l', shell=True))
-        subprocess.call("wpa_cli select_network " + str(network_count - 2 - 1) + " &> /dev/null", shell=True)
-        time.sleep(5)
-
-        ifarray = subprocess.check_output("wpa_cli ifname", shell=True).split()
-        subprocess.call("udhcpc -i " + ifarray[len(ifarray)-1] + " -n &> /dev/null", shell=True)
-    except Exception as e:
-        print(e)
-        print("Sorry. Could not get an IP address.")
-    else:
-        print("Attempting to enable network access, please check 'wpa_cli status' after a minute to confirm.")
-
 def checkNetwork():
   i = 60
   while 1:
@@ -636,7 +585,7 @@ def checkNetwork():
     if not address == "":
       print("Done. Please connect your laptop or PC to the same network as this device and go to " + \
         text_colors.CYAN + "http://" + address + text_colors.END + " or " + text_colors.CYAN + \
-        "http://" + subprocess.check_output('hostname').strip() + ".local" + text_colors.END + \
+        "http://" + os.popen('hostname').read().rstrip() + ".local" + text_colors.END + \
         " in your browser.")
       break
     if i == 0:
@@ -650,24 +599,25 @@ def connectNetwork():
 
   while 1:
     reset("WiFi Connection")
-    connections = scanForNetworks()
+    ssid_keys = scanForNetworks()
     choice = selectNetwork(ssid_keys)
 
     #choice is validated within selectNetwork.
     if choice == 2:
-      while 1:
-          ssid = input("Please enter the hidden network SSID: ")
-          if verified(ssid):
-              break
-      network_conf = configureHiddenNetwork(ssid)
-      break
-    elif choice:
-      network_conf = configureNetwork(choice, ssid_keys,network_map)
-      ssid = ssid_keys[choice-3]
-      break
+      print(text_colors.RED + "CURRENTLY NOT SUPPORTED" + text_colors.END)
+      #while 1:
+      #    ssid = input("Please enter the hidden network SSID: ")
+      #    if verified(ssid):
+      #        break
+      #configureHiddenNetwork(ssid)
+      #break
+    elif choice > 2:
+      if configureNetwork(choice, ssid_keys) == 0:
+        break
 
-  #print network_conf
-  setNetwork(network_conf, ssid)
+    # for error messages
+    time.sleep(5)
+
   checkNetwork()
   disableOneTimeSetup(True)
 
@@ -703,7 +653,8 @@ def getCurrentFirmwareInfo():
     f = open('/etc/version','r')
     ver_str = f.readline()
     f.close()
-    return ("edison-" + ver_str.split('-')[0], ver_str.split('-')[1].splitlines()[0])
+    #return ("edison-" + ver_str.split('-')[0], ver_str.split('-')[1].splitlines()[0])
+    return ver_str
 
 def isRestartWithAPSet():
     try:
@@ -787,18 +738,14 @@ def enableOneTimeSetup(persist):
     print("Scanning and saving WiFi networks...")
     scanForNetworks()
 
-    subprocess.call("systemctl stop wpa_supplicant", shell=True)
+    _setWiFiMode("Off")
 
     print("Restarting WiFi access point. Please wait...")
     print("")
 
     if persist:
-        subprocess.call("systemctl disable wpa_supplicant &> /dev/null", shell=True)
-        subprocess.call("systemctl enable hostapd &> /dev/null", shell=True)
+        _setWiFiMode("AP")
         subprocess.call("systemctl enable blink-led &> /dev/null", shell=True)
-
-    if int(subprocess.check_output("systemctl status hostapd | grep 'active (running)' | wc -l", shell=True)) == 0:
-        subprocess.call("systemctl start hostapd &> /dev/null", shell=True)
 
     myssid = getSSID()
 
@@ -807,7 +754,7 @@ def enableOneTimeSetup(persist):
 
 def disableOneTimeSetup(persist):
     subprocess.call("systemctl stop blink-led &> /dev/null", shell=True)
-    subprocess.call("systemctl stop hostapd &> /dev/null", shell=True)
+    _setWiFiMode("Off")
 
     try:
         os.remove(STATE_DIR + "/networks.txt")
@@ -815,12 +762,9 @@ def disableOneTimeSetup(persist):
         pass
 
     if persist:
-        subprocess.call("systemctl enable wpa_supplicant &> /dev/null", shell=True)
-        subprocess.call("systemctl disable hostapd &> /dev/null", shell=True)
         subprocess.call("systemctl disable blink-led &> /dev/null", shell=True)
 
-    if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) == 0:
-        subprocess.call("systemctl start wpa_supplicant &> /dev/null", shell=True)
+    _setWiFiMode("Powered")
 
 def toggleOneTimeSetup(persist):
     if showWiFiMode() == "Master":
@@ -1115,9 +1059,9 @@ def send_image(filename):
 
 def main():
     global lastScanned
-    global Settings 
+    global Settings
+    lastScanned = datetime.datetime.min 
     Settings = classSettings()
-    global CURR_PACKAGE_PATH
 
     parser = argparse.ArgumentParser(prog='configure_edison')
 
@@ -1203,8 +1147,6 @@ def main():
             setNetwork(network_conf, args.changewifi[1])
 
     if args.webInterface:
-        lastScanned = datetime.datetime.now() - timedelta(minutes = 2)
-        print(lastScanned)
         os.chdir(os.path.dirname('/usr/lib/edison_config_tools/public/'))
         debug(False)
         run(host='0.0.0.0', port=80)
