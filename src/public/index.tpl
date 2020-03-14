@@ -32,10 +32,10 @@
         <table class="content">
             <tr>
                 <td class="left">
-                    This wizard help you to setup the Edison.
-                    <i><p>Select a panel where you want to make changes in the menu above.</p>
-                    <p>To keep changes you make on a paneel click the Save button.</p>
-                    <p>No changes will be activated until you press Submit on the Activate panel.</p></i>
+                    This wizard helps you to set-up your Edison.
+                    <i><p>You may only review the sections in which you are interested in.</p>
+                    <p>On each panel please click the <em>Save</em> button to keep the changes you made.</p>
+                    <p>In the end click the <em>Submit</em> button on the Activate panel to apply the new configuration.</p></i>
                 </td>
                 <td class="middle">
                 </td>
