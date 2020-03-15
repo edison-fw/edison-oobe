@@ -338,7 +338,9 @@ def getNetworkIdentity():
 def getNetworkPassword():
   pw = ''
   while len(pw) == 0:
-    pw = getPassword("What is the network password?: ")
+    #FIXME: Does not work in the screen terminal emulator
+    #pw = getPassword("What is the network password?: ")
+    pw = input("What is the network password?: ")
   return pw
 
 def reset(stage):
@@ -428,6 +430,16 @@ def _getServices(type):
             connection.append((flags, ssid, session))
     return connection
 
+def _getPrivateService(type):
+    data = subprocess.getoutput("connmanctl services | grep " + type)
+    data = data.split("\n")
+
+    for i in range(len(data)):
+        (left, _, session) = data[i].rpartition(' ')
+        ssid = left[4:].rstrip()
+        if ssid == "":
+            return session
+
 def _scanForNetworks():
     global lastScanned
     global _cachedServices
@@ -442,7 +454,7 @@ def _scanForNetworks():
         _cachedServices = connection
     return connection
 
-def _store(WiFi_Network, WiFi_Name, WiFi_Passphrase):
+def _store(WiFi_Network, WiFi_Name, WiFi_Passphrase, WiFi_Identity=None):
     ConnmanServices = configparser.ConfigParser()
     ConnmanServices.optionxform=str
     ConnmanServices.read(CONNMAN_SERVICES)
@@ -454,7 +466,11 @@ def _store(WiFi_Network, WiFi_Name, WiFi_Passphrase):
     if WiFi_Passphrase != "!@#$%^&*":
         ConnmanServices["service_" + service]["Type"] = "wifi"
         ConnmanServices["service_" + service]["Name"] = WiFi_Name
-        ConnmanServices["service_" + service]["Passphrase"] = WiFi_Passphrase
+        ConnmanServices["service_" + service]["SSID"] = WiFi_Name.encode("utf-8").hex()
+        if WiFi_Passphrase is not None:
+            ConnmanServices["service_" + service]["Passphrase"] = WiFi_Passphrase
+        if WiFi_Identity is not None:
+            ConnmanServices["service_" + service]["Identity"] = WiFi_Identity
         with open(CONNMAN_SERVICES, 'w') as configfile:
             ConnmanServices.write(configfile)
 
@@ -469,9 +485,13 @@ def scanForNetworks():
     return connections
 
 def _selectNetwork(service):
-    (result, data) = subprocess.getstatusoutput("connmanctl connect " + service)
-    print(data)
-    return result
+    data = subprocess.getoutput("connmanctl connect " + service)
+    if data.startswith("Error") and not data.endswith("In progress"):
+        print(text_colors.RED + data + text_colors.END)
+        return False
+    else:
+        print(text_colors.GREEN + data + text_colors.END)
+        return True
 
 def selectNetwork(ssid_keys):
   i = 2
@@ -508,6 +528,8 @@ def selectNetwork(ssid_keys):
   return choice
 
 def configureHiddenNetwork(ssid):
+  service = _getPrivateService('wifi')
+
   print('''
     0: OPEN
     1: WEP
@@ -523,29 +545,55 @@ def configureHiddenNetwork(ssid):
       security = -1
 
     if security == 0:
-      return wpa_templates.OPEN % (ssid, "scan_ssid=1")
+      _store(service, ssid, None)
+      break
     elif security == 1:
       password = ''
       while len(password) != 5 and len(password) != 13:
         print("Password must be either 5 or 13 characters.")
         password = getNetworkPassword()
-      return wpa_templates.WEP % (ssid, "scan_ssid=1", password)
+      _store(service, ssid, password)
+      break
     elif security == 2:
       password = ''
       while len(password) < 8 or len(password) > 63:
         print("Password must be between 8 and 63 characters.")
         password = getNetworkPassword()
-      return wpa_templates.WPAPSK % (ssid, "scan_ssid=1", password)
+      _store(service, ssid, password)
+      break
     elif security == 3:
       identity = getNetworkIdentity()
       password = getNetworkPassword()
-      return wpa_templates.WPAEAP % (ssid, "scan_ssid=1", identity, password)
+      _store(service, ssid, password, identity)
+      break
     else:
       print("Invalid input.")
-  return network_template_open % ssid
+
+  return _selectNetwork(service)
 
 def configureNetwork(choice,ssid_keys):
-    _selectNetwork(ssid_keys[choice-3][2])
+  service = ssid_keys[choice-3][2]
+
+  if service.endswith("_none"):
+    return _selectNetwork(service)
+  elif service.endswith("_wep"):
+    identity = None
+    password = ''
+    while len(password) != 5 and len(password) != 13:
+      print("Password must be either 5 or 13 characters.")
+      password = getNetworkPassword()
+  elif service.endswith("_psk") or service.endswith("_wpa") or service.endswith("_rsn"):
+    identity = None
+    password = ''
+    while len(password) < 8 or len(password) > 63:
+      print("Password must be between 8 and 63 characters.")
+      password = getNetworkPassword()
+  elif service.endswith("_ieee8021x"):
+    identity = getNetworkIdentity()
+    password = getNetworkPassword()
+
+  _store(service, ssid_keys[choice-3][1], password, identity)
+  return _selectNetwork(service)
 
 def configureNetworkAP(changewifi):
   protocol = changewifi[0]
@@ -604,15 +652,14 @@ def connectNetwork():
 
     #choice is validated within selectNetwork.
     if choice == 2:
-      print(text_colors.RED + "CURRENTLY NOT SUPPORTED" + text_colors.END)
-      #while 1:
-      #    ssid = input("Please enter the hidden network SSID: ")
-      #    if verified(ssid):
-      #        break
-      #configureHiddenNetwork(ssid)
-      #break
+      while 1:
+        ssid = input("Please enter the hidden network SSID: ")
+        if verified(ssid):
+          break
+      if configureHiddenNetwork(ssid):
+        break
     elif choice > 2:
-      if configureNetwork(choice, ssid_keys) == 0:
+      if configureNetwork(choice, ssid_keys):
         break
 
     # for error messages
