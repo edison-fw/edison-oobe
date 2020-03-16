@@ -97,30 +97,28 @@ def _getAPSSID():
     ConnmanSettings.optionxform=str
     ConnmanSettings.read(CONNMAN_SETTINGS)
     APSSID = ConnmanSettings.get('WiFi', 'Tethering.Identifier', fallback='')
+    APPassword = ConnmanSettings.get('WiFi', 'Tethering.Passphrase', fallback='')
 
     if APSSID == "":
-        passphrase = os.popen("cat /factory/serial_number").read()
-        ConnmanSettings['WiFi']['Tethering.Identifier'] = _getDefaultSSID()
-        ConnmanSettings['WiFi']['Tethering.Passphrase'] = passphrase
-        with open(CONNMAN_SETTINGS, 'w') as configfile:
-            ConnmanSettings.write(configfile)
-    return(APSSID)
+        if APPassword == "":
+            APPassword = os.popen("cat /factory/serial_number").read()
+        subprocess.check_output("connmanctl tether wifi off " + _getDefaultSSID() + " " + APPassword, shell=True)
+    return APSSID
 
 def _changeAPSSID(newName):
     ConnmanSettings = configparser.ConfigParser()
     ConnmanSettings.optionxform=str
     ConnmanSettings.read(CONNMAN_SETTINGS)
-    ConnmanSettings['WiFi']['Tethering.Identifier'] = newName
-    with open(CONNMAN_SETTINGS, 'w') as configfile:
-        ConnmanSettings.write(configfile)
+    APPassword = ConnmanSettings.get('WiFi', 'Tethering.Passphrase', fallback='')
+    if APPassword == "":
+        APPassword = os.popen("cat /factory/serial_number").read()
+    subprocess.check_output("connmanctl tether wifi off " + newName + " " + APPassword, shell=True)
 
 def _changeAPPassword(newPass):
-    ConnmanSettings = configparser.ConfigParser()
-    ConnmanSettings.optionxform=str
-    ConnmanSettings.read(CONNMAN_SETTINGS)
-    ConnmanSettings['WiFi']['Tethering.Passphrase'] = newPass
-    with open(CONNMAN_SETTINGS, 'w') as configfile:
-        ConnmanSettings.write(configfile)
+    subprocess.check_output("connmanctl tether wifi off " + _getAPSSID() + " " + newPass, shell=True)
+
+def _changeAPCredentials(newName, newPass):
+    subprocess.check_output("connmanctl tether wifi off " + newName + " " + newPass, shell=True)
 
 def _getWiFiMode():
     modestr = ''
@@ -226,11 +224,13 @@ def _setWiFiMode(Mode):
     elif Mode == 'Powered':
         if CurrentMode == 'Off':
             subprocess.check_output("connmanctl enable wifi", shell=True)
-        if CurrentMode == 'AP':
+        elif CurrentMode == 'AP':
             subprocess.check_output("connmanctl tether wifi off", shell=True)
     elif Mode == 'AP':
         if CurrentMode == 'Off':
-            subprocess.check_output("connmanctl enable wifi && connmanctl tether wifi on", shell=True)
+            subprocess.check_output("connmanctl enable wifi", shell=True)
+            time.sleep(1)
+            subprocess.check_output("connmanctl tether wifi on", shell=True)
     time.sleep(1)
     return
 
@@ -560,33 +560,21 @@ def _configureNetwork(choice,ssid_keys):
   return _selectNetwork(service)
 
 def configureNetworkAP(changewifi):
-  protocol = changewifi[0]
-  ssid = changewifi[1]
-  if protocol == "OPEN":
-    return wpa_templates.OPEN % (ssid, "scan_ssid=1")
-  elif protocol == "WEP":
-    password = changewifi[2]
-    if len(password) != 5 and len(password) != 13:
-        print("Password must be either 5 or 13 characters.")
-        return None
-    return wpa_templates.WEP % (ssid, "scan_ssid=1", password)
-  elif protocol == "WPA-PSK":
-    password = changewifi[2]
-    if len(password) < 8 or len(password) > 63:
-        print("Password must be between 8 and 63 characters.")
-        return None
-    return wpa_templates.WPAPSK % (ssid, "scan_ssid=1", password)
-  elif protocol == "WPA-EAP":
-    if len(changewifi) != 4:
-      print("Both Identify and Password must be provided. Unable to proceed")
-      return
-    identity = changewifi[2]
-    password = changewifi[3]
-    return wpa_templates.WPAEAP % (ssid, "scan_ssid=1", identity, password)
-  else:
-    unacceptable_failure = "Strange Error... this shouldn't happen. Failure at %s. Let us know so we can patch this."
-    print(unacceptable_failure % "the last line of startNetworkConfig")
-    quit()
+  ssid = changewifi[0]
+  password = changewifi[1]
+
+  if WSREGEX.search(ssid) or WSREGEX.search(password):
+    print("The SSID and the password must not contain whitespaces.")
+    return False
+  if len(ssid) == 0:
+    print("SSID must not be empty.")
+    return False
+  if len(password) < 8 or len(password) > 63:
+    print("Password must be between 8 and 63 characters.")
+    return False
+
+  _changeAPCredentials(ssid, password)
+  return True
 
 def _checkNetwork():
   i = 60
@@ -1106,7 +1094,7 @@ def main():
                                        Append --persist to retain this setting after reboot', action='store_true', default=False)
     group_non_interactive.add_argument('--changePassword', metavar='password', dest='changepassword', const='', help=argparse.SUPPRESS, nargs='?')
     group_non_interactive.add_argument('--changeName', metavar='name', dest='changename', help=argparse.SUPPRESS, nargs=1)
-    group_non_interactive.add_argument('--changeWiFi', metavar='securityType SSID [Identity | password]', dest='changewifi', help=argparse.SUPPRESS, nargs='+')
+    group_non_interactive.add_argument('--changeWiFi', metavar='SSID password', dest='changewifi', help=argparse.SUPPRESS, nargs=2)
     group_non_interactive.add_argument('--showNames', dest='shownames', help='Show device name and SSID', action='store_true', default=False)
     group_non_interactive.add_argument('--webInterface', dest='webInterface', help='Start a web server', action='store_true', default=False)
 
@@ -1159,10 +1147,9 @@ def main():
     if args.toggleonetimesetup:
         toggleOneTimeSetup(args.persist)
 
-    if args.changewifi != None:
-        network_conf = configureNetworkAP(args.changewifi)
-        if network_conf != None:
-            setNetwork(network_conf, args.changewifi[1])
+    if args.changewifi:
+        if configureNetworkAP(args.changewifi):
+            enableOneTimeSetup(False)
 
     if args.webInterface:
         os.chdir(os.path.dirname('/usr/lib/edison_config_tools/public/'))
