@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>Edison Setup</title>
     <META HTTP-EQUIV="refresh" CONTENT="5">
-    <link rel="stylesheet" type="text/css" href="css/main.css" media="screen"/>
-    <script src="script/script.js" type="text/javascript"></script>
+    <link rel="stylesheet" href="css/main.css" media="screen"/>
+    <script src="script/script.js"></script>
 </head>
 <body>
 <a href="/" style="text-decoration: none"><h1>Edison Setup</h1></a>
 <!-- errors will go here -->
-<form id="setup_form" name="setup_form" method="POST" action="">
+<form id="setup_form" name="setup_form" method="POST">
     <BR>
     <div id="menu_section" class="menu_section">
         <div id='cssmenu' class="menu_section">
