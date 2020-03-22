@@ -35,8 +35,8 @@
                 </td>
                 <td class="middle">
                     <BR>
-                    <div class="can-toggle demo-rebrand-2">
-                        <input id="wired" type="checkbox" name="Wired_mode" value="{{Wired_Mode}}">
+                    <div class="can-toggle demo-rebrand-2"><!-- should be converted back into a checkbox -->
+                        <input id="wired" type="text" readonly="1" name="Wired_Mode" value="{{Wired_Mode}}">
                         <label for="wired">
                             <div class="can-toggle__switch" data-checked="ON" data-unchecked="OFF"></div>
                             <div class="can-toggle__label-text">{{Wired_IP}}</div>

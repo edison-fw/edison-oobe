@@ -49,6 +49,7 @@ class classWired:
     New = ""
     Type = ""
     Mode = ""
+    NewMode = ""
     IP = ""
     Valid = 0
     Changed = 0
@@ -867,11 +868,11 @@ def wired_form():
                 Settings.Wired.Type = "No ethernet available"
                 Settings.Wired.IP = ""
                 Settings.Wired.Mode = "OFF"
-            if Net == "Powered":
+            elif Net == "Powered":
                 Settings.Wired.IP = "Not connected"
                 Settings.Wired.Type = "Ethernet dongle"
                 Settings.Wired.Mode = "Checked"
-            if Net == "Connected":
+            elif Net == "Connected":
                 Settings.Wired.IP = _getIFaceIP("eth0")
                 Settings.Wired.Type = "Ethernet dongle"
                 Settings.Wired.Mode = "Checked"
@@ -921,7 +922,8 @@ def do_wired_form():
     Settings.Wired.NewMode = request.forms.get('Wired_Mode')
     if Settings.Wired.NewMode != Settings.Wired.Mode:
         Settings.Wired.Changed = 1
-        
+    redirect('/wired')
+
 @route('/bt')
 def bt_form():
     global Settings
