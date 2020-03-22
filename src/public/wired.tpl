@@ -50,10 +50,10 @@
             </tr>
             <tr>
                 <td class="left">
-                    Edison supports a wired connection over USB using an OTG cable (breakout board) or by placing the switch in Gadget mode (Edison Ardiuino board). Alternatively, plug a (USB) ethernet dongle. The type is detected automatically.
+                    Edison supports a wired connection over USB using an OTG cable (breakout board) or by placing the switch in Gadget mode (Edison Arduino board). Alternatively, plug a (USB) ethernet dongle. The type is detected automatically.
                 </td>
                 <td class="middle">
-                    <label for="name">Network Type:</label>
+                    <label>Network Type:</label>
                 </td>
                 <td class="right">
                     {{Wired_Type}}
