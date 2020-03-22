@@ -35,33 +35,35 @@
                 </td>
                 <td class="middle">
                     <BR>
-                    <div class="can-toggle demo-rebrand-2">
-                        <input id="wired" type="checkbox" name="Wired_mode" value="{{Wired_Mode}}">
+                    <div class="can-toggle demo-rebrand-2"><!-- should be converted back into a checkbox -->
+                        <input id="wired" type="text" readonly="1" name="BT_Mode" value="{{BT_Mode}}">
                         <label for="wired">
                             <div class="can-toggle__switch" data-checked="ON" data-unchecked="OFF"></div>
-                            <div class="can-toggle__label-text">{{Wired_IP}}</div>
+                            <div class="can-toggle__label-text">{{BT_IP}}</div>
                         </label>
                     </div>
                 </td>
                 <td class="right">
                     <BR>
-                    <label for="wired">{{Wired_State}}</label>
+                    <label for="wired">{{BT_Type}}</label>
                 </td>
             </tr>
             <tr>
                 <td class="left">
+<!--
                     Edison supports a wired connection over USB using an OTG cable (breakout board) or by placing the switch in Gadget mode (Edison Arduino board). Alternatively, plug a (USB) ethernet dongle. The type is detected automatically.
+-->
                 </td>
                 <td class="middle">
                     <label>Network Type:</label>
                 </td>
                 <td class="right">
-                    {{Wired_Type}}
+                    {{BT_Type}}
                 </td>
             <tr>
             </tr>
                 <td class="left">
-                    <i><p>Changing the Wired network will interrupt your connection if you are currently using this to access the Edison.</p>
+                    <i><p>Changing the Bluetooth network will interrupt your connection if you are currently using this to access the Edison.</p>
                     <p>Consider setting up a WiFi connection as a fallback before doing this.</p>
                     <p>Note: you are currently connected from {{Host_IP}}</p></i> 
                 </td>

@@ -934,38 +934,50 @@ def bt_form():
             Settings.BT.Type = "No bluetooth available"
             Settings.BT.IP = ""
             Settings.BT.Mode = "OFF"
-        if Net == "Powered":
+        elif Net == "Powered":
             Settings.BT.IP = "Not connected"
             Settings.BT.Type = ""
             Settings.BT.Mode = "Checked"
-        if Net == "Connected":
+        elif Net == "Connected":
             Settings.BT.IP = _getIFaceIP("bnep0")
             Settings.BT.Type = "Ethernet dongle"
             Settings.BT.Mode = "Checked"
-    else:
-        Settings.BT.Type = "An error has occured"
-        Settings.BT.IP = ""
-        Settings.BT.Mode = "OFF"
-            
+        elif Net == "Off":
+            Settings.BT.Type = "Unknown"
+            Settings.BT.IP = "Not powered"
+            Settings.BT.Mode = "OFF"
+        else:
+            Settings.BT.Type = "An error has occured"
+            Settings.BT.IP = ""
+            Settings.BT.Mode = "OFF"
+
     connections = _getServices("bluetooth")
     if connections:
         ConnState = connections[0][0]
     else:
         ConnState = ""
-    Wired_State = ""
+    BT_State = ""
 
     if Net == "Connected":
         if "O" in ConnState:
-            Wired_State = "Primary connection verified On Line"
+            BT_State = "Primary connection verified On Line"
         elif "R" in ConnState:
-            Wired_State = "Fall back connection standby"
+            BT_State = "Fall back connection standby"
     if Net == "Powered":
         if "*" in ConnState:
-            Wired_State = "Connection available"
+            BT_State = "Connection available"
         else:
-            Wired_State = "Not plugged"
-    return template('bt', Wired_Type = Settings.BT.Type, Wired_IP = Settings.BT.IP, \
-        Wired_Mode = Settings.BT.Mode, Wired_State = Wired_State, Host_IP = Host_IP)
+            BT_State = "Not plugged"
+    return template('bt', BT_Type = Settings.BT.Type, BT_IP = Settings.BT.IP, \
+        BT_Mode = Settings.BT.Mode, BT_State = BT_State, Host_IP = Host_IP)
+
+@route('/bt', method='POST')
+def do_bt_form():
+    global Settings
+    Settings.BT.NewMode = request.forms.get('BT_Mode')
+    if Settings.BT.NewMode != Settings.BT.Mode:
+        Settings.BT.Changed = 1
+    redirect('/bt')
 
 @route('/wireless')
 @route('/wirelessr')
