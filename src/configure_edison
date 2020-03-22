@@ -801,7 +801,19 @@ def do_main_form():
 
 @route('/activate')
 def activate():
-    return template('activate', hostname = "hostname")
+    global Settings
+    if Settings.HostName.Changed and Settings.HostName.Valid:
+        hostname = Settings.HostName.New
+    else:
+        hostname = _getHostName()
+    return template('activate', hostname = hostname)
+
+@route('/activate', method='POST')
+def do_activate_form():
+    global Settings
+    if Settings.HostName.Changed and Settings.HostName.Valid:
+        _changeHostName(Settings.HostName.New)
+    return "Done"
 
 @route('/name')
 def name_form():

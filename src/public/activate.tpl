@@ -32,7 +32,7 @@
         <table class="content">
             <tr>
                 <td class="left">
-                    <p><i>You should be ready to use your Edison, so please click on <em>Submit</em>!</i></p>
+                    <p><i>You should be ready to use your Edison <span style="font-weight: bold;">"{{hostname}}"</span>, so please click on <em>Submit</em>!</i></p>
                 </td>
             </tr>
         </table>
