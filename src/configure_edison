@@ -58,6 +58,7 @@ class classWired:
 class classSettings:
     HostName = classHostName()
     Wired = classWired()
+    BT = classWired()
 
 class text_colors:
   CYAN = '\033[96m'
@@ -913,7 +914,7 @@ def do_wired_form():
 def bt_form():
     global Settings
     Host_IP = request['REMOTE_ADDR']
-    if Settings.Wired.Changed == 0:
+    if Settings.BT.Changed == 0:
         Net = _getBTMode()
         if Net == "None":
             Settings.BT.Type = "No bluetooth available"
@@ -928,9 +929,9 @@ def bt_form():
             Settings.BT.Type = "Ethernet dongle"
             Settings.BT.Mode = "Checked"
     else:
-        Settings.Wired.Type = "An error has occured"
-        Settings.Wired.IP = ""
-        Settings.Wired.Mode = "OFF"
+        Settings.BT.Type = "An error has occured"
+        Settings.BT.IP = ""
+        Settings.BT.Mode = "OFF"
             
     connections = _getServices("bluetooth")
     if connections:
@@ -949,7 +950,7 @@ def bt_form():
             Wired_State = "Connection available"
         else:
             Wired_State = "Not plugged"
-    return template('wired', Wired_Type = Settings.BT.Type, Wired_IP = Settings.BT.IP, \
+    return template('bt', Wired_Type = Settings.BT.Type, Wired_IP = Settings.BT.IP, \
         Wired_Mode = Settings.BT.Mode, Wired_State = Wired_State, Host_IP = Host_IP)
 
 @route('/wireless')
