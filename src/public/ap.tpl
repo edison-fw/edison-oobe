@@ -62,10 +62,10 @@
                     <i>Changing the AP name will interrupt your connection if you are currently using this to acces the Edison. Leave the AP name as is to skip setting a new AP name.</i>
                 </td>
                 <td class="middle">
-                    <label for="name">AP Passphrase:</label>
+                    <label for="passphrase">AP Passphrase:</label>
                 </td>
                 <td class="right">
-                    <input type="password" id="name" name="APpassphrase" value="{{AP_passphrase}}" class="textbox">
+                    <input type="password" id="passphrase" name="APpassphrase" value="{{AP_passphrase}}" class="textbox">
                 </td>
             </tr>
         </table>
