@@ -31,7 +31,7 @@
         <table class="content">
             <tr>
                 <td class="left_header">
-                    <div class="header">Acces Point</div>
+                    <div class="header">Access Point</div>
                 </td>
                 <td class="middle">
                     <BR>
@@ -54,7 +54,7 @@
                     <label for="name">AP Name:</label>
                 </td>
                 <td class="right">
-                    <input type="text" id="name" name="APname" value="{{AP_name}}" class="textbox">
+                    <input type="text" id="name" name="AP_name" value="{{AP_name}}" class="textbox">
                 </td>
             </tr>
             <tr>
@@ -65,7 +65,7 @@
                     <label for="passphrase">AP Passphrase:</label>
                 </td>
                 <td class="right">
-                    <input type="password" id="passphrase" name="APpassphrase" value="{{AP_passphrase}}" class="textbox">
+                    <input type="password" id="passphrase" name="AP_passphrase" value="{{AP_passphrase}}" class="textbox">
                 </td>
             </tr>
         </table>

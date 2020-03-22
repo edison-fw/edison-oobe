@@ -1042,29 +1042,44 @@ def do_wireless_form():
         _selectNetwork(WiFi_Network)
     redirect('/wireless')
 
-
 @route('/ap')
 def ap_form():
     AP_mode = ""
     AP_IP = "Access Point is currently OFF"
-    WiFi_mode = ""
-    WiFi_IP = "WiFi is currently not powered"
     AP_name = _getAPSSID()
-    WiFiMode = _getWiFiMode()
-    WiFi_State = ""
     hostname = _getHostName()
 
-    if WiFiMode == "AP":
+    if _getWiFiMode() == "AP":
         AP_mode = "checked"
-        AP_IP = "Acces Point " + AP_name + " is currently on IP address: " + _getIFaceIP("tether")
-        _setWiFiMode("Powered")
-    elif WiFiMode == "Connected":
-        WiFi_mode = "Checked"
-    elif WiFiMode == "Powered":
-        WiFi_IP = "WiFi is powered but inactive"
-    else:
-        _setWiFiMode("Powered")
-    return template('ap', hostname = hostname, WiFi_mode = WiFi_mode, AP_mode = AP_mode, AP_name = AP_name, AP_passphrase = "        ", AP_IP = AP_IP)
+        AP_IP = "Access Point " + AP_name + " is currently on IP address: " + _getIFaceIP("tether")
+
+    return template('ap', hostname = hostname, AP_mode = AP_mode, AP_name = AP_name, AP_passphrase = "", AP_IP = AP_IP)
+
+@route('/ap', method='POST')
+def do_ap_form():
+    AP_mode = request.forms.get('AP_mode', "")
+    AP_name = request.forms.get('AP_name')
+    AP_passphrase = request.forms.get('AP_passphrase')
+
+    if _getWiFiMode() != "AP" and AP_mode == "on":
+        if AP_name != _getAPSSID():
+            if WSREGEX.search(AP_name):
+                return "The SSID must not contain whitespaces."
+            if len(AP_name) == 0:
+                return "The SSID must not be empty."
+            _changeAPSSID(AP_name)
+        if AP_passphrase != "":
+            if WSREGEX.search(AP_passphrase):
+                return "The passphrase must not contain whitespaces."
+            if len(AP_passphrase) < 8 or len(AP_passphrase) > 63:
+                return "The passphrase must be between 8 and 63 characters."
+            _changeAPPassword(AP_passphrase)
+
+        enableOneTimeSetup(False)
+    elif _getWiFiMode() == "AP" and AP_mode == "":
+        disableOneTimeSetup(False)
+
+    redirect('/ap')
 
 @route('/main.css')
 def server_static(filename):
