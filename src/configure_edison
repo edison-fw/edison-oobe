@@ -632,8 +632,10 @@ def connectNetwork():
   disableOneTimeSetup(True)
 
 def showWiFiIP():
+    if _getWiFiMode() == 'AP':
+        return _getIFaceIP("tether")
     ipstr = _getIFaceIP('wlan0')
-    if ipstr == 'none' and _getWiFiMode() != 'AP':
+    if ipstr == 'none':
         print("No IP address found. Device not connected?")
     return ipstr
 
