@@ -189,12 +189,11 @@ def _getBTMode():
     return "Off"
 
 def _getGadgetMode():
-    try:
-        subprocess.check_output('dmesg | grep -q "usb0: link becomes ready"', shell=True)
-    except subprocess.CalledProcessError:
+    modestr = ''
+    modestr = subprocess.run('lsusb', shell=False, stderr=subprocess.PIPE)
+    modestr = str(modestr.stderr, 'utf-8')
+    if modestr.find("unable to initialize libusb") >= 0:
         return "None"
-    except Exception as inst:
-        return "Err"
 
     modestr = ''
     try:
