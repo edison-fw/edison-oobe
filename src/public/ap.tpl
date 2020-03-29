@@ -4,6 +4,12 @@
     <title>Edison Setup</title>
     <link rel="stylesheet" href="css/main.css" media="screen"/>
     <script src="script/script.js"></script>
+    <script>
+        function toggleAP(e) {
+            document.getElementById('name').readOnly = !e.target.checked
+            document.getElementById('passphrase').readOnly = !e.target.checked
+        }
+    </script>
 </head>
 <body>
 <a href="/" style="text-decoration: none"><h1>Edison Setup</h1></a>
@@ -36,7 +42,7 @@
                 <td class="middle">
                     <BR>
                     <div class="can-toggle demo-rebrand-2">
-                        <input id="ap" type="checkbox" name="AP_mode" value="checked" {{AP_mode}}>
+                        <input id="ap" type="checkbox" name="AP_mode" onchange="toggleAP(event)" value="checked" {{AP_mode}}>
                         <label for="ap">
                             <div class="can-toggle__switch" data-checked="ON" data-unchecked="OFF"></div>
                             <div class="can-toggle__label-text">{{AP_IP}}</div>
@@ -54,7 +60,7 @@
                     <label for="name">AP Name:</label>
                 </td>
                 <td class="right">
-                    <input type="text" id="name" name="AP_name" value="{{AP_name}}" class="textbox">
+                    <input type="text" id="name" name="AP_name" value="{{AP_name}}" class="textbox" readonly>
                 </td>
             </tr>
             <tr>
@@ -65,7 +71,7 @@
                     <label for="passphrase">AP Passphrase:</label>
                 </td>
                 <td class="right">
-                    <input type="password" id="passphrase" name="AP_passphrase" value="{{AP_passphrase}}" class="textbox">
+                    <input type="password" id="passphrase" name="AP_passphrase" value="{{AP_passphrase}}" class="textbox" readonly>
                 </td>
             </tr>
         </table>
