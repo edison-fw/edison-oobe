@@ -36,7 +36,7 @@
                 <td class="middle">
                     <BR>
                     <div class="can-toggle demo-rebrand-2">
-                        <input id="ap" type="checkbox" name="AP_mode" {{AP_mode}}>
+                        <input id="ap" type="checkbox" name="AP_mode" value="checked" {{AP_mode}}>
                         <label for="ap">
                             <div class="can-toggle__switch" data-checked="ON" data-unchecked="OFF"></div>
                             <div class="can-toggle__label-text">{{AP_IP}}</div>

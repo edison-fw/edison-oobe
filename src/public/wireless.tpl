@@ -36,7 +36,7 @@
                 <td class="middle">
                     <BR>
                     <div class="can-toggle demo-rebrand-2">
-                        <input id="wifi" type="checkbox" name="WiFi_mode" {{WiFi_mode}}>
+                        <input id="wifi" type="checkbox" name="WiFi_mode" value="checked" {{WiFi_mode}}>
                         <label for="wifi">
                             <div class="can-toggle__switch" data-checked="ON" data-unchecked="OFF"></div>
                             <div class="can-toggle__label-text">{{WiFi_IP}}</div>
@@ -60,9 +60,10 @@
                         %for row in rows:
                             <option value="{{row[2]}}">{{row[1]}}</option>
                         %end
+                    </select>
                 </td>
-            <tr>
             </tr>
+            <tr>
                 <td class="left">
                     <i><p>Changing the WiFi network will interrupt your connection if you are currently using this to access the Edison. </p>
                     <p>Consider setting up a wired connection as a fallback before doing this.</p>

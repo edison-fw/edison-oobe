@@ -300,7 +300,7 @@ def _getPrivateService(type):
 
 def _getCachedService(service):
     global _cachedServices
-    
+
     for i in _cachedServices:
         if i[2] == service:
             return i[1]
@@ -773,7 +773,7 @@ def changePassword(newPass):
     pass_done.close()
     print("First-time root password setup complete. Enabling SSH on WiFi interface.")
     subprocess.call("sed -i 's/^BindToDevice=/# BindToDevice=/g' /lib/systemd/system/sshd.socket ; sync ; systemctl daemon-reload; systemctl restart sshd.socket", shell=True)
-    
+
 def changeName(newName):
     if _checkName(newName) < 0:
         print("Invalid new name. Ignoring")
@@ -992,7 +992,7 @@ def wireless_form():
     if WiFiMode == "AP":
         _setWiFiMode("Powered")
     elif WiFiMode == "Connected":
-        WiFi_mode = "Checked"
+        WiFi_mode = "checked"
         WiFi_IP = _getIFaceIP("wlan0")
     elif WiFiMode == "Powered":
         WiFi_IP = "WiFi is powered but inactive"
@@ -1014,19 +1014,19 @@ def wireless_form():
         if WiFiMode != _getWiFiMode():
             _setWiFiMode(WiFiMode)
     if ReloadMode == True:
-        return template('wirelessr',  
+        return template('wirelessr',
                     WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
     else:
-        return template('wireless',  
+        return template('wireless',
                     WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
 
 @route('/wireless', method='POST')
 def do_wireless_form():
     WiFiMode = _getWiFiMode()
-    WiFi_mode = request.forms.get('WiFi_mode')
+    WiFi_mode = request.forms.get('WiFi_mode', '')
     WiFi_Network = request.forms.get('newwifis')
     WiFi_Passphrase = request.forms.get('WiFipassphrase')
-    if WiFi_mode == "on":
+    if WiFi_mode == "checked":
         new_WiFiMode = "Connected"
     else:
         new_WiFiMode = "Off"
@@ -1057,11 +1057,11 @@ def ap_form():
 
 @route('/ap', method='POST')
 def do_ap_form():
-    AP_mode = request.forms.get('AP_mode', "")
+    AP_mode = request.forms.get('AP_mode', '')
     AP_name = request.forms.get('AP_name')
     AP_passphrase = request.forms.get('AP_passphrase')
 
-    if _getWiFiMode() != "AP" and AP_mode == "on":
+    if _getWiFiMode() != "AP" and AP_mode == "checked":
         if AP_name != _getAPSSID():
             if WSREGEX.search(AP_name):
                 return "The SSID must not contain whitespaces."
