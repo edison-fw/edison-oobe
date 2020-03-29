@@ -35,8 +35,8 @@
                 </td>
                 <td class="middle">
                     <BR>
-                    <div class="can-toggle demo-rebrand-2"><!-- should be converted back into a checkbox -->
-                        <input id="wired" type="text" readonly="1" name="BT_Mode" value="{{BT_Mode}}">
+                    <div class="can-toggle demo-rebrand-2">
+                        <input id="wired" type="checkbox" name="BT_Mode" value="checked" {{BT_Mode}}>
                         <label for="wired">
                             <div class="can-toggle__switch" data-checked="ON" data-unchecked="OFF"></div>
                             <div class="can-toggle__label-text">{{BT_IP}}</div>
@@ -45,14 +45,12 @@
                 </td>
                 <td class="right">
                     <BR>
-                    <label for="wired">{{BT_Type}}</label>
+                    <label for="wired">{{BT_State}}</label>
                 </td>
             </tr>
             <tr>
                 <td class="left">
-<!--
-                    Edison supports a wired connection over USB using an OTG cable (breakout board) or by placing the switch in Gadget mode (Edison Arduino board). Alternatively, plug a (USB) ethernet dongle. The type is detected automatically.
--->
+                    Edison supports a wireless connection over BT by pairing with a smartphone and enabling the BT tethering mode to gain Internet access.
                 </td>
                 <td class="middle">
                     <label>Network Type:</label>
@@ -60,8 +58,8 @@
                 <td class="right">
                     {{BT_Type}}
                 </td>
-            <tr>
             </tr>
+            <tr>
                 <td class="left">
                     <i><p>Changing the Bluetooth network will interrupt your connection if you are currently using this to access the Edison.</p>
                     <p>Consider setting up a WiFi connection as a fallback before doing this.</p>

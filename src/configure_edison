@@ -236,6 +236,19 @@ def _setWiFiMode(Mode):
     time.sleep(1)
     return
 
+def _setBTMode(Mode):
+    CurrentMode = _getBTMode()
+    if CurrentMode == 'Err':
+        return
+    if Mode == 'Off':
+        if CurrentMode != 'Off':
+            subprocess.check_output("connmanctl disable bluetooth", shell=True)
+    elif Mode == 'Powered':
+        if CurrentMode == 'Off':
+            subprocess.check_output("connmanctl enable bluetooth", shell=True)
+    time.sleep(1)
+    return
+
 def _changeRootPassword(newPass):
   echoSub = subprocess.Popen(["echo", "root:" + newPass], stdout=subprocess.PIPE)
   chpasswdSub = subprocess.Popen(["chpasswd"], stdin=echoSub.stdout, stdout=subprocess.PIPE)
@@ -919,37 +932,38 @@ def wired_form():
 @route('/wired', method='POST')
 def do_wired_form():
     global Settings
-    Settings.Wired.NewMode = request.forms.get('Wired_Mode')
+    Settings.Wired.NewMode = request.forms.get('Wired_Mode', '')
     if Settings.Wired.NewMode != Settings.Wired.Mode:
         Settings.Wired.Changed = 1
+    else:
+        Settings.Wired.Changed = 0
     redirect('/wired')
 
 @route('/bt')
 def bt_form():
     global Settings
     Host_IP = request['REMOTE_ADDR']
-    if Settings.BT.Changed == 0:
-        Net = _getBTMode()
-        if Net == "None":
-            Settings.BT.Type = "No bluetooth available"
-            Settings.BT.IP = ""
-            Settings.BT.Mode = "OFF"
-        elif Net == "Powered":
-            Settings.BT.IP = "Not connected"
-            Settings.BT.Type = ""
-            Settings.BT.Mode = "Checked"
-        elif Net == "Connected":
-            Settings.BT.IP = _getIFaceIP("bnep0")
-            Settings.BT.Type = "Ethernet dongle"
-            Settings.BT.Mode = "Checked"
-        elif Net == "Off":
-            Settings.BT.Type = "Unknown"
-            Settings.BT.IP = "Not powered"
-            Settings.BT.Mode = "OFF"
-        else:
-            Settings.BT.Type = "An error has occured"
-            Settings.BT.IP = ""
-            Settings.BT.Mode = "OFF"
+    Net = _getBTMode()
+    if Net == "None":
+        Settings.BT.Type = "No bluetooth available"
+        Settings.BT.IP = ""
+        Settings.BT.Mode = ""
+    elif Net == "Powered":
+        Settings.BT.IP = "Not connected"
+        Settings.BT.Type = ""
+        Settings.BT.Mode = "checked"
+    elif Net == "Connected":
+        Settings.BT.IP = _getIFaceIP("bnep0")
+        Settings.BT.Type = "NAP"
+        Settings.BT.Mode = "checked"
+    elif Net == "Off":
+        Settings.BT.Type = "Unknown"
+        Settings.BT.IP = "Not powered"
+        Settings.BT.Mode = ""
+    else:
+        Settings.BT.Type = "An error has occured"
+        Settings.BT.IP = ""
+        Settings.BT.Mode = ""
 
     connections = _getServices("bluetooth")
     if connections:
@@ -963,7 +977,7 @@ def bt_form():
             BT_State = "Primary connection verified On Line"
         elif "R" in ConnState:
             BT_State = "Fall back connection standby"
-    if Net == "Powered":
+    elif Net == "Powered":
         if "*" in ConnState:
             BT_State = "Connection available"
         else:
@@ -974,9 +988,15 @@ def bt_form():
 @route('/bt', method='POST')
 def do_bt_form():
     global Settings
-    Settings.BT.NewMode = request.forms.get('BT_Mode')
+    Settings.BT.NewMode = request.forms.get('BT_Mode', '')
     if Settings.BT.NewMode != Settings.BT.Mode:
         Settings.BT.Changed = 1
+        if Settings.BT.NewMode == "checked":
+            _setBTMode("Powered")
+        else:
+            _setBTMode("Off")
+    else:
+        Settings.BT.Changed = 0
     redirect('/bt')
 
 @route('/wireless')
