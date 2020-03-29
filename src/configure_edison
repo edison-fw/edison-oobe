@@ -189,12 +189,13 @@ def _getBTMode():
     return "Off"
 
 def _getGadgetMode():
-    modestr = ''
-    modestr = subprocess.run('lsusb', shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    modestr = str(modestr.stderr, 'utf-8')
-    gadget = modestr.find("unable to initialize libusb")
-    if gadget == -1:
+    try:
+        subprocess.check_output('dmesg | grep -q "usb0: link becomes ready"', shell=True)
+    except subprocess.CalledProcessError:
         return "None"
+    except Exception as inst:
+        return "Err"
+
     modestr = ''
     try:
         modestr = subprocess.check_output('connmanctl technologies', shell=True)
@@ -246,6 +247,19 @@ def _setBTMode(Mode):
     elif Mode == 'Powered':
         if CurrentMode == 'Off':
             subprocess.check_output("connmanctl enable bluetooth", shell=True)
+    time.sleep(1)
+    return
+
+def _setGadgetMode(Mode):
+    CurrentMode = _getGadgetMode()
+    if CurrentMode == 'Err':
+        return
+    if Mode == 'Off':
+        if CurrentMode != 'Off':
+            subprocess.check_output("connmanctl disable gadget", shell=True)
+    elif Mode == 'Powered':
+        if CurrentMode == 'Off':
+            subprocess.check_output("connmanctl enable gadget", shell=True)
     time.sleep(1)
     return
 
@@ -873,42 +887,42 @@ def do_name_form():
 def wired_form():
     global Settings
     Host_IP = request['REMOTE_ADDR']
-    if Settings.Wired.Changed == 0:
-        Net = _getGadgetMode()
+    Net = _getGadgetMode()
+    if Net == "None":
+        Net = _getWiredMode()
         if Net == "None":
-            Net = _getWiredMode()
-            if Net == "None":
-                Settings.Wired.Type = "No ethernet available"
-                Settings.Wired.IP = ""
-                Settings.Wired.Mode = "OFF"
-            elif Net == "Powered":
-                Settings.Wired.IP = "Not connected"
-                Settings.Wired.Type = "Ethernet dongle"
-                Settings.Wired.Mode = "Checked"
-            elif Net == "Connected":
-                Settings.Wired.IP = _getIFaceIP("eth0")
-                Settings.Wired.Type = "Ethernet dongle"
-                Settings.Wired.Mode = "Checked"
-            else:
-                Settings.Wired.Type = "An error has occured"
-                Settings.Wired.IP = ""
-                Settings.Wired.Mode = "OFF"
+            Settings.Wired.Type = "No ethernet available"
+            Settings.Wired.IP = ""
+            Settings.Wired.Mode = ""
         elif Net == "Powered":
             Settings.Wired.IP = "Not connected"
-            Settings.Wired.Type = "Ethernet over USB (OTG)"
-            Settings.Wired.Mode = "Checked"
+            Settings.Wired.Type = "Ethernet dongle"
+            Settings.Wired.Mode = "checked"
         elif Net == "Connected":
-            Settings.Wired.IP = _getIFaceIP("usb0")
-            Settings.Wired.Type = "Ethernet over USB (OTG)"
-            Settings.Wired.Mode = "Checked"
-        elif Net == "Off":
-            Settings.Wired.Type = "Ethernet over USB (OTG)"
-            Settings.Wired.IP = "Not powered"
-            Settings.Wired.Mode = "OFF"
+            Settings.Wired.IP = _getIFaceIP("eth0")
+            Settings.Wired.Type = "Ethernet dongle"
+            Settings.Wired.Mode = "checked"
         else:
             Settings.Wired.Type = "An error has occured"
             Settings.Wired.IP = ""
-            Settings.Wired.Mode = "OFF"
+            Settings.Wired.Mode = ""
+    elif Net == "Powered":
+        Settings.Wired.IP = "Not connected"
+        Settings.Wired.Type = "Ethernet over USB (OTG)"
+        Settings.Wired.Mode = "checked"
+    elif Net == "Connected":
+        Settings.Wired.IP = _getIFaceIP("usb0")
+        Settings.Wired.Type = "Ethernet over USB (OTG)"
+        Settings.Wired.Mode = "checked"
+    elif Net == "Off":
+        Settings.Wired.Type = "Ethernet over USB (OTG)"
+        Settings.Wired.IP = "Not powered"
+        Settings.Wired.Mode = ""
+    else:
+        Settings.Wired.Type = "An error has occured"
+        Settings.Wired.IP = ""
+        Settings.Wired.Mode = ""
+
     connections = _getServices("Wired")
     if connections:
         ConnState = connections[0][0]
@@ -921,7 +935,7 @@ def wired_form():
             Wired_State = "Primary connection verified On Line"
         elif "R" in ConnState:
             Wired_State = "Fall back connection standby"
-    if Net == "Powered":
+    elif Net == "Powered":
         if "*" in ConnState:
             Wired_State = "Connection available"
         else:
@@ -935,6 +949,10 @@ def do_wired_form():
     Settings.Wired.NewMode = request.forms.get('Wired_Mode', '')
     if Settings.Wired.NewMode != Settings.Wired.Mode:
         Settings.Wired.Changed = 1
+        if Settings.Wired.NewMode == "checked":
+            _setGadgetMode("Powered")
+        else:
+            _setGadgetMode("Off")
     else:
         Settings.Wired.Changed = 0
     redirect('/wired')

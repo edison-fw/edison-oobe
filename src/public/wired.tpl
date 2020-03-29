@@ -35,8 +35,8 @@
                 </td>
                 <td class="middle">
                     <BR>
-                    <div class="can-toggle demo-rebrand-2"><!-- should be converted back into a checkbox -->
-                        <input id="wired" type="text" readonly="1" name="Wired_Mode" value="{{Wired_Mode}}">
+                    <div class="can-toggle demo-rebrand-2">
+                        <input id="wired" type="checkbox" name="Wired_Mode" value="checked" {{Wired_Mode}}>
                         <label for="wired">
                             <div class="can-toggle__switch" data-checked="ON" data-unchecked="OFF"></div>
                             <div class="can-toggle__label-text">{{Wired_IP}}</div>
@@ -58,8 +58,8 @@
                 <td class="right">
                     {{Wired_Type}}
                 </td>
-            <tr>
             </tr>
+            <tr>
                 <td class="left">
                     <i><p>Changing the Wired network will interrupt your connection if you are currently using this to access the Edison.</p>
                     <p>Consider setting up a WiFi connection as a fallback before doing this.</p>
