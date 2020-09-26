@@ -160,6 +160,7 @@ def _getWiredMode():
     Section = configparser.ConfigParser()
     Section.optionxform=str
     Section.read_string(modestr)
+    print(Section)
     if Section['Wired']['Connected'] == 'True':
         return "Connected"
     if Section['Wired']['Powered'] == 'True':
@@ -192,7 +193,7 @@ def _getGadgetMode():
     modestr = ''
     modestr = subprocess.run('lsusb', shell=False, stderr=subprocess.PIPE)
     modestr = str(modestr.stderr, 'utf-8')
-    if modestr.find("unable to initialize libusb") >= 0:
+    if modestr.find("root hub") >= 0:
         return "None"
 
     modestr = ''
