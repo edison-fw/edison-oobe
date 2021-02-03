@@ -1026,30 +1026,27 @@ def wireless_form():
     WiFi_State = ""
     ReloadMode = False
 
-    if WiFiMode == "AP":
-        _setWiFiMode("Powered")
-    elif WiFiMode == "Connected":
+    if WiFiMode == "Connected":
         WiFi_mode = "checked"
         WiFi_IP = _getIFaceIP("wlan0")
     elif WiFiMode == "Powered":
         WiFi_IP = "WiFi is powered but inactive"
-    else:
-        _setWiFiMode("Powered")
 
-    connections = _scanForNetworks()
-    print(connections)
-    if connections[0][1] == "Scanning, please wait 10 seconds":
-        WiFi_State = "Scanning"
-        ReloadMode = True
-    else:
-        if WiFiMode == "Connected":
-            ConnState = connections[0][0]
-            if "O" in ConnState:
-                WiFi_State = "Primary connection verified On Line"
-            elif "R" in ConnState:
-                WiFi_State = "Fall back connection standby"
-        if WiFiMode != _getWiFiMode():
-            _setWiFiMode(WiFiMode)
+    connections = []
+    if WiFiMode == "Powered" or WiFiMode == "Connected":
+        connections = _scanForNetworks()
+        print(connections)
+        if len(connections) > 0 and connections[0][1] == "Scanning, please wait 10 seconds":
+            WiFi_State = "Scanning"
+            ReloadMode = True
+        else:
+            if WiFiMode == "Connected":
+                ConnState = connections[0][0]
+                if "O" in ConnState:
+                    WiFi_State = "Primary connection verified On Line"
+                elif "R" in ConnState:
+                    WiFi_State = "Fall back connection standby"
+
     if ReloadMode == True:
         return template('wirelessr',
                     WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
