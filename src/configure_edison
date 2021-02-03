@@ -24,7 +24,7 @@ import argparse
 import re
 from array import *
 import configparser
-from bottle import Bottle, route, run, debug, template, request, static_file, error, redirect
+from bottle import route, run, debug, template, request, static_file, redirect
 import datetime
 from datetime import timedelta
 
@@ -86,7 +86,7 @@ def _checkName(newName):
 def _changeHostName(newName):
   hostname_file = open('/etc/hostname','w')
   hostname_file.write(newName + "\n")
-  hostname_file.close();
+  hostname_file.close()
   subprocess.call("hostname -F /etc/hostname", shell=True)
 
 def _getDefaultSSID():
@@ -295,7 +295,7 @@ def _scanForNetworks():
     now = datetime.datetime.now()
     if((now - lastScanned) >  timedelta(seconds = 30)):
         lastScanned = now
-        data = subprocess.check_output("connmanctl scan wifi", shell=True)
+        subprocess.check_output("connmanctl scan wifi", shell=True)
         connection.append(("", "Scanning, please wait 10 seconds", ""))
     else:
         connection = _getServices("wifi")
@@ -625,7 +625,6 @@ def _checkNetwork():
     i = i-1
 
 def connectNetwork():
-  network_conf = ""
   ssid = ""
   _setWiFiMode("Powered")
 
@@ -1148,7 +1147,7 @@ def send_image(filename):
 def main():
     global lastScanned
     global Settings
-    lastScanned = datetime.datetime.min 
+    lastScanned = datetime.datetime.min
     Settings = classSettings()
 
     parser = argparse.ArgumentParser(prog='configure_edison')
