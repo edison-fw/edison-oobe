@@ -22,6 +22,8 @@ import fcntl
 import subprocess
 import argparse
 import re
+import socket
+import struct
 from array import *
 import configparser
 from bottle import route, run, debug, template, request, static_file, redirect
@@ -273,20 +275,17 @@ def _getHostName():
     return(str(subprocess.check_output('hostname', shell=True).strip(), 'utf-8'))
 
 def _getIFaceIP(iface):
-    ipstr = ''
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        ipstr = subprocess.check_output("ifconfig " + iface + " | grep \'inet addr:\'", shell=True)
-    except subprocess.CalledProcessError:
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', iface[:15].encode('utf-8'))
+        )[20:24])
+    except OSError:
         return "none"
-    except Exception as inst:
-        return "none"
-
-    ipstr = str(ipstr, 'utf-8')
-    startIdx = ipstr.find('inet addr:')
-    if (startIdx == -1):
-         return "none"
-    ipstr = ipstr[ipstr.find('inet addr:')+10:].split()[0]
-    return ipstr
+    finally:
+        s.close()
 
 def _scanForNetworks():
     global lastScanned
