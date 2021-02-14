@@ -162,7 +162,6 @@ def _getWiredMode():
     Section = configparser.ConfigParser()
     Section.optionxform=str
     Section.read_string(modestr)
-    print(Section)
     if Section['Wired']['Connected'] == 'True':
         return "Connected"
     if Section['Wired']['Powered'] == 'True':
@@ -208,7 +207,7 @@ def _getGadgetMode():
 
     modestr = str(modestr, 'utf-8')
     if modestr.find("gadget") == -1:
-        return "Err"
+        return "None"
     modestr = "[Wired]" + modestr.split('/net/connman/technology/gadget')[1].split('/net/connman/technology')[0].replace(' ','')
     Section = configparser.ConfigParser()
     Section.optionxform=str
