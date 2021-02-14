@@ -331,6 +331,10 @@ def _getCachedService(service):
         if i[2] == service:
             return i[1]
 
+def _getIFace(service):
+    data = subprocess.getoutput("connmanctl services " + service[2] + "| grep Ethernet")
+    return re.compile(r"Interface=(\w+)").search(data)[1]
+
 def _selectNetwork(service):
     data = subprocess.getoutput("connmanctl connect " + service)
     if data.startswith("Error") and not data.endswith("In progress"):
@@ -890,35 +894,27 @@ def wired_form():
         Net = _getWiredMode()
         if Net == "None":
             Settings.Wired.Type = "No ethernet available"
-            Settings.Wired.IP = ""
             Settings.Wired.Mode = ""
         elif Net == "Powered":
-            Settings.Wired.IP = "Not connected"
             Settings.Wired.Type = "Ethernet dongle"
             Settings.Wired.Mode = "checked"
         elif Net == "Connected":
-            Settings.Wired.IP = _getIFaceIP("eth0")
             Settings.Wired.Type = "Ethernet dongle"
             Settings.Wired.Mode = "checked"
         else:
             Settings.Wired.Type = "An error has occured"
-            Settings.Wired.IP = ""
             Settings.Wired.Mode = ""
     elif Net == "Powered":
-        Settings.Wired.IP = "Not connected"
         Settings.Wired.Type = "Ethernet over USB (OTG)"
         Settings.Wired.Mode = "checked"
     elif Net == "Connected":
-        Settings.Wired.IP = _getIFaceIP("usb0")
         Settings.Wired.Type = "Ethernet over USB (OTG)"
         Settings.Wired.Mode = "checked"
     elif Net == "Off":
         Settings.Wired.Type = "Ethernet over USB (OTG)"
-        Settings.Wired.IP = "Not powered"
         Settings.Wired.Mode = ""
     else:
         Settings.Wired.Type = "An error has occured"
-        Settings.Wired.IP = ""
         Settings.Wired.Mode = ""
 
     connections = _getServices("Wired")
@@ -928,16 +924,20 @@ def wired_form():
         ConnState = ""
     Wired_State = ""
 
+    Settings.Wired.IP = "Unknown"
     if Net == "Connected":
         if "O" in ConnState:
             Wired_State = "Primary connection verified On Line"
         elif "R" in ConnState:
             Wired_State = "Fall back connection standby"
+        Settings.Wired.IP = _getIFaceIP(_getIFace(connections[0]))
     elif Net == "Powered":
         if "*" in ConnState:
             Wired_State = "Connection available"
         else:
             Wired_State = "Not plugged"
+        Settings.Wired.IP = "Unconnected"
+
     return template('wired', Wired_Type = Settings.Wired.Type, Wired_IP = Settings.Wired.IP, \
         Wired_Mode = Settings.Wired.Mode, Wired_State = Wired_State, Host_IP = Host_IP)
 
@@ -962,23 +962,18 @@ def bt_form():
     Net = _getBTMode()
     if Net == "None":
         Settings.BT.Type = "No bluetooth available"
-        Settings.BT.IP = ""
         Settings.BT.Mode = ""
     elif Net == "Powered":
-        Settings.BT.IP = "Not connected"
         Settings.BT.Type = ""
         Settings.BT.Mode = "checked"
     elif Net == "Connected":
-        Settings.BT.IP = _getIFaceIP("bnep0")
         Settings.BT.Type = "NAP"
         Settings.BT.Mode = "checked"
     elif Net == "Off":
-        Settings.BT.Type = "Unknown"
         Settings.BT.IP = "Not powered"
         Settings.BT.Mode = ""
     else:
         Settings.BT.Type = "An error has occured"
-        Settings.BT.IP = ""
         Settings.BT.Mode = ""
 
     connections = _getServices("bluetooth")
@@ -988,16 +983,20 @@ def bt_form():
         ConnState = ""
     BT_State = ""
 
+    Settings.BT.IP = "Unknown"
     if Net == "Connected":
         if "O" in ConnState:
             BT_State = "Primary connection verified On Line"
         elif "R" in ConnState:
             BT_State = "Fall back connection standby"
+        Settings.BT.IP = _getIFaceIP(_getIFace(connections[0]))
     elif Net == "Powered":
         if "*" in ConnState:
             BT_State = "Connection available"
         else:
             BT_State = "Not plugged"
+        Settings.BT.IP = "Unconnected"
+
     return template('bt', BT_Type = Settings.BT.Type, BT_IP = Settings.BT.IP, \
         BT_Mode = Settings.BT.Mode, BT_State = BT_State, Host_IP = Host_IP)
 
