@@ -836,16 +836,19 @@ def do_activate_form():
     global Settings
     if Settings.HostName.Changed and Settings.HostName.Valid:
         _changeHostName(Settings.HostName.New)
+        Settings.HostName.Changed = False
     if Settings.Wired.Changed:
         if Settings.Wired.NewMode == "checked":
             _setGadgetMode("Powered")
         else:
             _setGadgetMode("Off")
+        Settings.Wired.Changed = False
     if Settings.BT.Changed:
         if Settings.BT.NewMode == "checked":
             _setBTMode("Powered")
         else:
             _setBTMode("Off")
+        Settings.BT.Changed = False
 
     return "Done"
 
