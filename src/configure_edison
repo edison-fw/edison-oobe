@@ -43,20 +43,14 @@ class classHostName:
     New = ""
     Valid = False
     Changed = False
-    Checked = ""
     Tooltip = ""
 
 class classWired:
-    Old = ""
-    New = ""
     Type = ""
     Mode = ""
     NewMode = ""
     IP = ""
-    Valid = False
     Changed = False
-    Checked = ""
-    Tooltip = ""
 
 class classSettings:
     HostName = classHostName()
