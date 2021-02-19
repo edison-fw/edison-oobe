@@ -52,10 +52,18 @@ class classWired:
     IP = ""
     Changed = False
 
+class classAP:
+    Name = ""
+    Passphrase = ""
+    NewMode = ""
+    Changed = False
+    Enabled = False
+
 class classSettings:
     HostName = classHostName()
     Wired = classWired()
     BT = classWired()
+    AP = classAP()
 
 class text_colors:
   CYAN = '\033[96m'
@@ -849,6 +857,17 @@ def do_activate_form():
         else:
             _setBTMode("Off")
         Settings.BT.Changed = False
+    if Settings.AP.Changed:
+        if Settings.AP.Name != "":
+            _changeAPSSID(Settings.AP.Name)
+        if Settings.AP.Passphrase != "":
+            _changeAPPassword(Settings.AP.Passphrase)
+            Settings.AP.Passphrase = ""
+        if Settings.AP.Enabled:
+            enableOneTimeSetup(False)
+        else:
+            disableOneTimeSetup(False)
+        Settings.AP.Changed = False
 
     return "Done"
 
@@ -1077,40 +1096,53 @@ def do_wireless_form():
 
 @route('/ap')
 def ap_form():
-    AP_mode = ""
-    AP_IP = "Access Point is currently OFF"
+    global Settings
+
     AP_name = _getAPSSID()
     hostname = _getHostName()
 
     if _getWiFiMode() == "AP":
         AP_mode = "checked"
         AP_IP = "Access Point " + AP_name + " is currently on IP address: " + _getIFaceIP("tether")
+    else:
+        AP_mode = ""
+        AP_IP = "Access Point is currently OFF"
 
-    return template('ap', hostname = hostname, AP_mode = AP_mode, AP_name = AP_name, AP_passphrase = "", AP_IP = AP_IP)
+    return template('ap', hostname = hostname,
+        AP_mode = Settings.AP.NewMode if Settings.AP.Changed else AP_mode,
+        AP_name = Settings.AP.Name if Settings.AP.Changed else AP_name,
+        AP_passphrase = "", AP_IP = AP_IP)
 
 @route('/ap', method='POST')
 def do_ap_form():
-    AP_mode = request.forms.get('AP_mode', '')
+    global Settings
+    Settings.AP.NewMode = request.forms.get('AP_mode', '')
     AP_name = request.forms.get('AP_name')
     AP_passphrase = request.forms.get('AP_passphrase')
 
-    if _getWiFiMode() != "AP" and AP_mode == "checked":
-        if AP_name != _getAPSSID():
+    Settings.AP.Changed = False
+    if _getWiFiMode() != "AP" and Settings.AP.NewMode == "checked":
+        Settings.AP.Changed = True
+        Settings.AP.Enabled = True
+        # update done in do_activate_form()
+
+        if AP_name != Settings.AP.Name:
             if WSREGEX.search(AP_name):
                 return "The SSID must not contain whitespaces."
             if len(AP_name) == 0:
                 return "The SSID must not be empty."
-            _changeAPSSID(AP_name)
+            Settings.AP.Name = AP_name
         if AP_passphrase != "":
             if WSREGEX.search(AP_passphrase):
                 return "The passphrase must not contain whitespaces."
             if len(AP_passphrase) < 8 or len(AP_passphrase) > 63:
                 return "The passphrase must be between 8 and 63 characters."
-            _changeAPPassword(AP_passphrase)
-
-        enableOneTimeSetup(False)
-    elif _getWiFiMode() == "AP" and AP_mode == "":
-        disableOneTimeSetup(False)
+            Settings.AP.Passphrase = AP_passphrase
+            AP_passphrase = None
+    elif _getWiFiMode() == "AP" and Settings.AP.NewMode == "":
+        Settings.AP.Changed = True
+        Settings.AP.Enabled = False
+        # update done in do_activate_form()
 
     redirect('/ap')
 
