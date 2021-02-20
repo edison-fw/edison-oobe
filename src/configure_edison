@@ -52,7 +52,7 @@ class classWired:
     IP = ""
     Changed = False
 
-class classAP:
+class classWifiAP:
     Name = ""
     Passphrase = ""
     NewMode = ""
@@ -63,7 +63,8 @@ class classSettings:
     HostName = classHostName()
     Wired = classWired()
     BT = classWired()
-    AP = classAP()
+    Wifi = classWifiAP()
+    AP = classWifiAP()
 
 class text_colors:
   CYAN = '\033[96m'
@@ -857,6 +858,23 @@ def do_activate_form():
         else:
             _setBTMode("Off")
         Settings.BT.Changed = False
+    if Settings.Wifi.Changed:
+        if Settings.Wifi.NewMode == "checked":
+            new_WiFiMode = "Connected"
+        else:
+            new_WiFiMode = "Off"
+        if _getWiFiMode() != new_WiFiMode:
+            if new_WiFiMode == "Connected":
+                _setWiFiMode("Powered")
+            else:
+                _setWiFiMode(new_WiFiMode)
+        WiFiMode = _getWiFiMode()
+        if WiFiMode == "Powered" or WiFiMode == "Connected":
+            WiFi_ServiceName = _getCachedService(Settings.Wifi.Name)
+            _store(Settings.Wifi.Name, WiFi_ServiceName, Settings.Wifi.Passphrase)
+            Settings.Wifi.Passphrase = ""
+            _selectNetwork(Settings.Wifi.Name)
+        Settings.Wifi.Changed = False
     if Settings.AP.Changed:
         if Settings.AP.Name != "":
             _changeAPSSID(Settings.AP.Name)
@@ -965,7 +983,7 @@ def wired_form():
         Settings.Wired.IP = "Unconnected"
 
     return template('wired', Wired_Type = Settings.Wired.Type, Wired_IP = Settings.Wired.IP, \
-        Wired_Mode = Settings.Wired.NewMode if Settings.Wired.Changed else Settings.Wired.Mode,
+        Wired_Mode = Settings.Wired.NewMode if Settings.Wired.Changed else Settings.Wired.Mode, \
         Wired_State = Wired_State, Host_IP = Host_IP)
 
 @route('/wired', method='POST')
@@ -1037,6 +1055,7 @@ def do_bt_form():
 @route('/wireless')
 @route('/wirelessr')
 def wireless_form():
+    global Settings
     Host_IP = request['REMOTE_ADDR']
     WiFi_mode = ""
     WiFi_IP = "WiFi is currently not powered"
@@ -1067,31 +1086,24 @@ def wireless_form():
 
     if ReloadMode == True:
         return template('wirelessr',
-                    WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
+                    WiFi_mode = Settings.Wifi.NewMode if Settings.Wifi.Changed else WiFi_mode,
+                    rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*",
+                    WiFi_State = WiFi_State, Host_IP = Host_IP)
     else:
         return template('wireless',
-                    WiFi_mode = WiFi_mode, rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*", WiFi_State = WiFi_State, Host_IP = Host_IP)
+                    WiFi_mode = Settings.Wifi.NewMode if Settings.Wifi.Changed else WiFi_mode,
+                    rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*",
+                    WiFi_State = WiFi_State, Host_IP = Host_IP)
 
 @route('/wireless', method='POST')
 def do_wireless_form():
-    WiFiMode = _getWiFiMode()
-    WiFi_mode = request.forms.get('WiFi_mode', '')
-    WiFi_Network = request.forms.get('newwifis')
-    WiFi_Passphrase = request.forms.get('WiFipassphrase')
-    if WiFi_mode == "checked":
-        new_WiFiMode = "Connected"
-    else:
-        new_WiFiMode = "Off"
-    if WiFiMode != new_WiFiMode:
-        if new_WiFiMode == "Connected":
-            _setWiFiMode("Powered")
-        else:
-            _setWiFiMode(new_WiFiMode)
-    WiFiMode = _getWiFiMode()
-    if WiFiMode == "Powered" or WiFiMode == "Connected":
-        WiFi_Name = _getCachedService(WiFi_Network)
-        _store(WiFi_Network, WiFi_Name, WiFi_Passphrase)
-        _selectNetwork(WiFi_Network)
+    global Settings
+    Settings.Wifi.NewMode = request.forms.get('WiFi_mode', '')
+    Settings.Wifi.Name = request.forms.get('newwifis')
+    Settings.Wifi.Passphrase = request.forms.get('WiFipassphrase')
+
+    Settings.Wifi.Changed = True
+    # update done in do_activate_form()
     redirect('/wireless')
 
 @route('/ap')
