@@ -1157,10 +1157,6 @@ def do_ap_form():
 
     redirect('/ap')
 
-@route('/main.css')
-def server_static(filename):
-    return static_file('main.css', root='.')
-
 @route('/img/<filename:re:.*\.png>')
 def send_image(filename):
     return static_file(filename, root='img', mimetype='image/png')
