@@ -860,14 +860,10 @@ def do_activate_form():
         Settings.BT.Changed = False
     if Settings.Wifi.Changed:
         if Settings.Wifi.NewMode == "checked":
-            new_WiFiMode = "Connected"
+            new_WiFiMode = "Powered"
         else:
             new_WiFiMode = "Off"
-        if _getWiFiMode() != new_WiFiMode:
-            if new_WiFiMode == "Connected":
-                _setWiFiMode("Powered")
-            else:
-                _setWiFiMode(new_WiFiMode)
+        _setWiFiMode(new_WiFiMode)
         WiFiMode = _getWiFiMode()
         if WiFiMode == "Powered" or WiFiMode == "Connected":
             WiFi_ServiceName = _getCachedService(Settings.Wifi.Name)
@@ -1103,6 +1099,7 @@ def do_wireless_form():
     Settings.Wifi.Passphrase = request.forms.get('WiFipassphrase')
 
     Settings.Wifi.Changed = True
+    Settings.AP.Changed = False # AP and wifi activation are mutually exclusive
     # update done in do_activate_form()
     redirect('/wireless')
 
@@ -1155,6 +1152,8 @@ def do_ap_form():
         Settings.AP.Changed = True
         Settings.AP.Enabled = False
         # update done in do_activate_form()
+    if Settings.AP.Changed:
+        Settings.Wifi.Changed = False # AP and wifi activation are mutually exclusive
 
     redirect('/ap')
 
