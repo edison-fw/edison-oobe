@@ -56,14 +56,18 @@
                     <label>Network Type:</label>
                 </td>
                 <td class="right">
-                    {{BT_Type}}
+                    <select id="newbts" name="newbts" class="selector" style="display: inline-block">
+                        %for row in rows:
+                            <option value="{{row[2]}}">{{row[1]}}</option>
+                        %end
+                    </select>
                 </td>
             </tr>
             <tr>
                 <td class="left">
                     <i><p>Changing the Bluetooth network will interrupt your connection if you are currently using this to access the Edison.</p>
                     <p>Consider setting up a WiFi connection as a fallback before doing this.</p>
-                    <p>Note: you are currently connected from {{Host_IP}}</p></i> 
+                    <p>Note: you are currently connected from {{Host_IP}}</p></i>
                 </td>
                 <td class="middle">
                 </td>

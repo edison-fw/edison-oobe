@@ -56,13 +56,14 @@ class classWifiAP:
     Name = ""
     Passphrase = ""
     NewMode = ""
+    IP = ""
     Changed = False
     Enabled = False
 
 class classSettings:
     HostName = classHostName()
     Wired = classWired()
-    BT = classWired()
+    BT = classWifiAP()
     Wifi = classWifiAP()
     AP = classWifiAP()
 
@@ -854,9 +855,13 @@ def do_activate_form():
         Settings.Wired.Changed = False
     if Settings.BT.Changed:
         if Settings.BT.NewMode == "checked":
-            _setBTMode("Powered")
+            new_BTMode = "Powered"
         else:
-            _setBTMode("Off")
+            new_BTMode = "Off"
+        _setBTMode(new_BTMode)
+        BTMode = _getBTMode()
+        if Settings.BT.Name is not None and BTMode == "Powered" or BTMode == "Connected":
+            _selectNetwork(Settings.BT.Name)
         Settings.BT.Changed = False
     if Settings.Wifi.Changed:
         if Settings.Wifi.NewMode == "checked":
@@ -865,7 +870,7 @@ def do_activate_form():
             new_WiFiMode = "Off"
         _setWiFiMode(new_WiFiMode)
         WiFiMode = _getWiFiMode()
-        if WiFiMode == "Powered" or WiFiMode == "Connected":
+        if Settings.Wifi.Name is not None and WiFiMode == "Powered" or WiFiMode == "Connected":
             WiFi_ServiceName = _getCachedService(Settings.Wifi.Name)
             _store(Settings.Wifi.Name, WiFi_ServiceName, Settings.Wifi.Passphrase)
             Settings.Wifi.Passphrase = ""
@@ -997,21 +1002,10 @@ def bt_form():
     global Settings
     Host_IP = request['REMOTE_ADDR']
     Net = _getBTMode()
-    if Net == "None":
-        Settings.BT.Type = "No bluetooth available"
-        Settings.BT.Mode = ""
-    elif Net == "Powered":
-        Settings.BT.Type = ""
-        Settings.BT.Mode = "checked"
-    elif Net == "Connected":
-        Settings.BT.Type = "NAP"
-        Settings.BT.Mode = "checked"
-    elif Net == "Off":
-        Settings.BT.IP = "Not powered"
-        Settings.BT.Mode = ""
-    else:
-        Settings.BT.Type = "An error has occured"
-        Settings.BT.Mode = ""
+
+    BT_Mode = ""
+    if Net == "Powered" or Net == "Connected":
+        BT_Mode = "checked"
 
     connections = _getServices("bluetooth")
     if connections:
@@ -1034,18 +1028,18 @@ def bt_form():
             BT_State = "Not plugged"
         Settings.BT.IP = "Unconnected"
 
-    return template('bt', BT_Type = Settings.BT.Type, BT_IP = Settings.BT.IP, \
-        BT_Mode = Settings.BT.NewMode if Settings.BT.Changed else Settings.BT.Mode, \
+    return template('bt', rows = connections, BT_IP = Settings.BT.IP, \
+        BT_Mode = Settings.BT.NewMode if Settings.BT.Changed else BT_Mode, \
         BT_State = BT_State, Host_IP = Host_IP)
 
 @route('/bt', method='POST')
 def do_bt_form():
     global Settings
     Settings.BT.NewMode = request.forms.get('BT_Mode', '')
-    Settings.BT.Changed = False
-    if Settings.BT.NewMode != Settings.BT.Mode:
-        Settings.BT.Changed = True
-        # update done in do_activate_form()
+    Settings.BT.Name = request.forms.get('newbts')
+
+    Settings.BT.Changed = True
+    # update done in do_activate_form()
     redirect('/bt')
 
 @route('/wireless')
@@ -1054,16 +1048,16 @@ def wireless_form():
     global Settings
     Host_IP = request['REMOTE_ADDR']
     WiFi_mode = ""
-    WiFi_IP = "WiFi is currently not powered"
+    Settings.Wifi.IP = "WiFi is currently not powered"
     WiFiMode = _getWiFiMode()
     WiFi_State = ""
     ReloadMode = False
 
     if WiFiMode == "Connected":
         WiFi_mode = "checked"
-        WiFi_IP = _getIFaceIP("wlan0")
+        Settings.Wifi.IP = _getIFaceIP("wlan0")
     elif WiFiMode == "Powered":
-        WiFi_IP = "WiFi is powered but inactive"
+        Settings.Wifi.IP = "WiFi is powered but inactive"
 
     connections = []
     if WiFiMode == "Powered" or WiFiMode == "Connected":
@@ -1083,12 +1077,12 @@ def wireless_form():
     if ReloadMode == True:
         return template('wirelessr',
                     WiFi_mode = Settings.Wifi.NewMode if Settings.Wifi.Changed else WiFi_mode,
-                    rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*",
+                    rows = connections, WiFi_IP = Settings.Wifi.IP, WiFi_Passphrase = "!@#$%^&*",
                     WiFi_State = WiFi_State, Host_IP = Host_IP)
     else:
         return template('wireless',
                     WiFi_mode = Settings.Wifi.NewMode if Settings.Wifi.Changed else WiFi_mode,
-                    rows = connections, WiFi_IP = WiFi_IP, WiFi_Passphrase = "!@#$%^&*",
+                    rows = connections, WiFi_IP = Settings.Wifi.IP, WiFi_Passphrase = "!@#$%^&*",
                     WiFi_State = WiFi_State, Host_IP = Host_IP)
 
 @route('/wireless', method='POST')
