@@ -110,7 +110,7 @@ def _getAPSSID():
     if APSSID == "":
         if APPassword == "":
             APPassword = os.popen("cat /factory/serial_number").read()
-        subprocess.check_output("connmanctl tether wifi off " + _getDefaultSSID() + " " + APPassword, shell=True)
+        subprocess.check_output("connmanctl tether wifi off '" + _getDefaultSSID() + "' '" + APPassword + "'", shell=True)
     return APSSID
 
 def _changeAPSSID(newName):
@@ -120,13 +120,13 @@ def _changeAPSSID(newName):
     APPassword = ConnmanSettings.get('WiFi', 'Tethering.Passphrase', fallback='')
     if APPassword == "":
         APPassword = os.popen("cat /factory/serial_number").read()
-    subprocess.check_output("connmanctl tether wifi off " + newName + " " + APPassword, shell=True)
+    subprocess.check_output("connmanctl tether wifi off '" + newName + "' '" + APPassword + "'", shell=True)
 
 def _changeAPPassword(newPass):
-    subprocess.check_output("connmanctl tether wifi off " + _getAPSSID() + " " + newPass, shell=True)
+    subprocess.check_output("connmanctl tether wifi off '" + _getAPSSID() + "' '" + newPass + "'", shell=True)
 
 def _changeAPCredentials(newName, newPass):
-    subprocess.check_output("connmanctl tether wifi off " + newName + " " + newPass, shell=True)
+    subprocess.check_output("connmanctl tether wifi off '" + newName + "' '" + newPass + "'", shell=True)
 
 def _getWiFiMode():
     modestr = ''
@@ -305,7 +305,7 @@ def _scanForNetworks():
     return connection
 
 def _getServices(type):
-    data = subprocess.getoutput("connmanctl services | grep " + type)
+    data = subprocess.getoutput("connmanctl services | grep '" + type + "'")
     data = data.split("\n")
 
     connection = []
@@ -318,7 +318,7 @@ def _getServices(type):
     return connection
 
 def _getPrivateService(type):
-    data = subprocess.getoutput("connmanctl services | grep " + type)
+    data = subprocess.getoutput("connmanctl services | grep '" + type + "'")
     data = data.split("\n")
 
     for i in range(len(data)):
@@ -335,11 +335,11 @@ def _getCachedService(service):
             return i[1]
 
 def _getIFace(service):
-    data = subprocess.getoutput("connmanctl services " + service[2] + "| grep Ethernet")
+    data = subprocess.getoutput("connmanctl services '" + service[2] + "'| grep Ethernet")
     return re.compile(r"Interface=(\w+)").search(data)[1]
 
 def _selectNetwork(service):
-    data = subprocess.getoutput("connmanctl connect " + service)
+    data = subprocess.getoutput("connmanctl connect '" + service + "'")
     if data.startswith("Error") and not data.endswith("In progress"):
         print(text_colors.RED + data + text_colors.END)
         return False
