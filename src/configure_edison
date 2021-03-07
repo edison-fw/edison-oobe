@@ -891,7 +891,7 @@ def do_activate_form():
             disableOneTimeSetup(False)
         Settings.AP.Changed = False
 
-    return "Done"
+    redirect('/name')
 
 @route('/name')
 def name_form():
