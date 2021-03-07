@@ -839,7 +839,10 @@ def activate():
         hostname = Settings.HostName.New
     else:
         hostname = _getHostName()
-    return template('activate', hostname = hostname)
+    return template('activate', hostname = hostname, \
+        nameChange = Settings.HostName.Changed, wiredChange = Settings.Wired.Changed, \
+        btChange = Settings.BT.Changed, wifiChange = Settings.Wifi.Changed, \
+        apChange = Settings.AP.Changed)
 
 @route('/activate', method='POST')
 def do_activate_form():

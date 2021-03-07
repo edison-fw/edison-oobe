@@ -34,6 +34,16 @@
                 <td class="left">
                     <p><i>You should be ready to use your Edison <span style="font-weight: bold;">"{{hostname}}"</span>, so please click on <em>Submit</em>!</i></p>
                 </td>
+                <td class="middle">
+                    <p>You have made changes to the following sections:</p>
+                    <ul>
+                        <li><i>Name</i>: <span style="font-weight: bold;">{{nameChange}}</span></li>
+                        <li><i>Wired Conn.</i>: <span style="font-weight: bold;">{{wiredChange}}</span></li>
+                        <li><i>Wireless Conn.</i>: <span style="font-weight: bold;">{{wifiChange}}</span></li>
+                        <li><i>Bluetooth Conn.</i>: <span style="font-weight: bold;">{{btChange}}</span></li>
+                        <li><i>Access Point</i>: <span style="font-weight: bold;">{{apChange}}</span></li>
+                    </ul>
+                </td>
             </tr>
         </table>
     </div>
