@@ -377,9 +377,6 @@ def _getch():
   newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
   termios.tcsetattr(fd, termios.TCSANOW, newattr)
 
-  oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
-  fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
-
   try:
     while 1:
       try:
@@ -388,11 +385,11 @@ def _getch():
       except IOError: pass
   finally:
     termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
-    fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
   return c
 
 def _getPassword(prompt):
   stdout.write(prompt)
+  stdout.flush()
   pw = ""
 
   while 1:
@@ -410,6 +407,7 @@ def _getPassword(prompt):
     else:
       pw = pw + c
       stdout.write("*")
+    stdout.flush()
   stdout.write('\r')
   stdout.write('\n')
   return pw
@@ -521,9 +519,7 @@ def _getNetworkIdentity():
 def _getNetworkPassword():
   pw = ''
   while len(pw) == 0:
-    #FIXME: Does not work in the screen terminal emulator
-    #pw = _getPassword("What is the network password?: ")
-    pw = input("What is the network password?: ")
+    pw = _getPassword("What is the network password?: ")
   return pw
 
 def _configureHiddenNetwork(ssid):
