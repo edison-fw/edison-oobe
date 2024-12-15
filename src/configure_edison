@@ -1150,19 +1150,19 @@ def do_ap_form():
 
     redirect('/ap')
 
-@route('/img/<filename:re:.*\.png>')
+@route('/img/<filename:re:.*\\.png>')
 def send_image(filename):
     return static_file(filename, root='img', mimetype='image/png')
 
-@route('/img/<filename:re:.*\.svg>')
+@route('/img/<filename:re:.*\\.svg>')
 def send_image(filename):
     return static_file(filename, root='img', mimetype='image/svg+xml')
 
-@route('/css/<filename:re:.*\.css>')
+@route('/css/<filename:re:.*\\.css>')
 def send_static(filename):
     return static_file(filename, root='css')
 
-@route('/script/<filename:re:.*\.js>')
+@route('/script/<filename:re:.*\\.js>')
 def send_static(filename):
     return static_file(filename, root='script')
 
@@ -1183,24 +1183,23 @@ def main():
     parser.add_argument('--restartWithAP', dest='restartwithap', help=argparse.SUPPRESS, action='store_true', default=False)
     parser.add_argument('--persist', dest='persist', help=argparse.SUPPRESS, action='store_true', default=False)
 
-    root_group = parser.add_mutually_exclusive_group()
-
-    group_interactive = root_group.add_mutually_exclusive_group()
+    # Define top-level mutually exclusive groups
+    group_interactive = parser.add_mutually_exclusive_group()
     group_interactive.add_argument('--setup', dest='setup', help='Goes through changing the device name, password, and wifi options', action='store_true', default=False)
     group_interactive.add_argument('--name', dest='name', help='Changes the device name', action='store_true', default=False)
     group_interactive.add_argument('--password', dest='password', help='Changes the device password', action='store_true', default=False)
     group_interactive.add_argument('--wifi', dest='wifi', help='Changes the wifi options', action='store_true', default=False)
 
-    group_non_interactive = root_group.add_mutually_exclusive_group()
+    group_non_interactive = parser.add_mutually_exclusive_group()
     group_non_interactive.add_argument('--isRestartWithAPSet', dest='isrestartwithapset', help=argparse.SUPPRESS, action='store_true', default=False)
     group_non_interactive.add_argument('--showWiFiIP', dest='showwifiip', help='IP address associated with the wireless interface', action='store_true', default=False)
     group_non_interactive.add_argument('--showWiFiMode', dest='showwifimode', help='Show current mode for the wireless interface', action='store_true', default=False)
     group_non_interactive.add_argument('--disableOneTimeSetup', dest='disableonetimesetup', help='Disable one-time setup with WiFi access point and enable WiFi client mode. \
-                                       Append --persist to retain this setting after reboot', action='store_true', default=False)
+                                           Append --persist to retain this setting after reboot', action='store_true', default=False)
     group_non_interactive.add_argument('--enableOneTimeSetup', dest='enableonetimesetup', help='Enable one-time setup with WiFi access point and disable WiFi client mode. \
-                                       Append --persist to retain this setting after reboot', action='store_true', default=False)
-    group_non_interactive.add_argument('--toggleOneTimeSetup', dest='toggleonetimesetup', help='Switch between one-time setup with WiFi access point and WiFi client mode, and visa-versa. \
-                                       Append --persist to retain this setting after reboot', action='store_true', default=False)
+                                           Append --persist to retain this setting after reboot', action='store_true', default=False)
+    group_non_interactive.add_argument('--toggleOneTimeSetup', dest='toggleonetimesetup', help='Switch between one-time setup with WiFi access point and WiFi client mode, and vice versa. \
+                                           Append --persist to retain this setting after reboot', action='store_true', default=False)
     group_non_interactive.add_argument('--changePassword', metavar='password', dest='changepassword', const='', help=argparse.SUPPRESS, nargs='?')
     group_non_interactive.add_argument('--changeName', metavar='name', dest='changename', help=argparse.SUPPRESS, nargs=1)
     group_non_interactive.add_argument('--changeWiFi', metavar='SSID password', dest='changewifi', help=argparse.SUPPRESS, nargs=2)
