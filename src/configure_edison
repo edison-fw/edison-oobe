@@ -96,7 +96,7 @@ def _changeHostName(newName):
   subprocess.call("hostname -F /etc/hostname", shell=True)
 
 def _getDefaultSSID():
-    data = os.popen("cat /sys/class/net/wlan0/address | tr '[:lower:]' '[:upper:]'").read()
+    data = os.popen("cat /sys/class/net/wlan0/address | tr '[:lower:]' '[:upper:]'").read().rstrip()
     APSSID = "EDISON-" + data[12:14] +"-" + data[15:17]
     return APSSID
 
@@ -109,7 +109,7 @@ def _getAPSSID():
 
     if APSSID == "":
         if APPassword == "":
-            APPassword = os.popen("cat /factory/serial_number").read()
+            APPassword = os.popen("cat /factory/serial_number").read().rstrip()
         subprocess.check_output("connmanctl tether wifi off '" + _getDefaultSSID() + "' '" + APPassword + "'", shell=True)
     return APSSID
 
@@ -119,7 +119,7 @@ def _changeAPSSID(newName):
     ConnmanSettings.read(CONNMAN_SETTINGS)
     APPassword = ConnmanSettings.get('WiFi', 'Tethering.Passphrase', fallback='')
     if APPassword == "":
-        APPassword = os.popen("cat /factory/serial_number").read()
+        APPassword = os.popen("cat /factory/serial_number").read().rstrip()
     subprocess.check_output("connmanctl tether wifi off '" + newName + "' '" + APPassword + "'", shell=True)
 
 def _changeAPPassword(newPass):
